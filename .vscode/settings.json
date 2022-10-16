@@ -29,5 +29,13 @@
     "**/.*/**",
     "**/.vscode",
     "**/.vscode/**"
-  ]
+	],
+	"files.associations": {
+		"*.ejs": "html",
+		"*.fsh": "hlsl",
+		"array": "cpp",
+		"string_view": "cpp",
+		"initializer_list": "cpp",
+		"utility": "cpp"
+	}
 }
