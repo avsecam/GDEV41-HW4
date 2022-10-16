@@ -1,0 +1,34 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "C/C++: g++.exe build active file",
+			"command": "A:\\Other\\MinGW\\bin\\g++.exe",
+			"args": [
+				"${file}",
+				"-o",
+				"${fileDirname}\\${fileBasenameNoExtension}.exe",
+				"-I",
+				"../raylib/raylib",
+				"-L",
+				"../raylib/raylib",
+				"-lraylib",
+				"-lopengl32",
+				"-lgdi32",
+				"-lwinmm"
+			],
+			"options": {
+				"cwd": "${fileDirname}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "compiler: A:\\Other\\MinGW\\bin\\g++.exe"
+		}
+	]
+}

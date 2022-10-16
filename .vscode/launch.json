@@ -9,7 +9,7 @@
       "stopAtEntry": false,
       "externalConsole": true,
       "cwd": "a:/AAA/SEM9/GDEV41/HW4 - Spatial Data Structures",
-      "program": "a:/AAA/SEM9/GDEV41/HW4 - Spatial Data Structures/build/Debug/outDebug",
+      "program": "${workspaceFolder}/${fileBasenameNoExtension}",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
