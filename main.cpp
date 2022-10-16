@@ -13,17 +13,17 @@ const float TIMESTEP(1.0f / TARGET_FPS);
 
 const KeyboardKey SPAWN_KEY(KEY_SPACE);
 
-const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
-const int SMALL_CIRCLE_RADIUS_MIN(5);
-const int SMALL_CIRCLE_RADIUS_MAX(10);
-const int SMALL_CIRCLE_MASS(1);
-const float SMALL_CIRCLE_VELOCITY_MIN(50.0f);
-const float SMALL_CIRCLE_VELOCITY_MAX(100.0f);
-
 enum CircleSize {
 	small = 0,
 	big = 1
 };
+
+const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(2);
+const int SMALL_CIRCLE_RADIUS_MIN(5);
+const int SMALL_CIRCLE_RADIUS_MAX(10);
+const int SMALL_CIRCLE_MASS(1);
+const float SMALL_CIRCLE_VELOCITY_MIN(5.0f);
+const float SMALL_CIRCLE_VELOCITY_MAX(100.0f);
 
 const int NUMBER_OF_PRESSES_UNTIL_BIG_CIRCLE_SPAWNS(10);
 const int BIG_CIRCLE_RADIUS(25);
@@ -33,7 +33,21 @@ const float FRICTION(-0.75f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
 
-static float randf(const float min, const float max);
+// https://cplusplus.com/forum/beginner/81180/
+// Returns a random float within min and max
+static float randf(const float min, const float max) {
+  float result = (rand() / static_cast<float>(RAND_MAX) * (max - min + 1)) + min;
+  return result;
+}
+
+// Returns 1 or -1
+static int directionMultiplier() {
+	int randomNumber = rand() % 100; // 0 to 99
+	if (randomNumber < 50) {
+		return -1.0f;
+	}
+	return 1.0f;
+}
 
 struct Circle {
   int radius;
@@ -54,14 +68,16 @@ struct Circle {
 			255
 		};
 		velocity = {
-			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * randf(-1.0f, 1.0f),
-			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * randf(-1.0f, 1.0f)
+			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * directionMultiplier(),
+			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * directionMultiplier()
 		};
 		position = {
 			WINDOW_WIDTH / 2,
 			WINDOW_HEIGHT / 2
 		};
 		radius = rand() % (SMALL_CIRCLE_RADIUS_MAX - SMALL_CIRCLE_RADIUS_MIN) + SMALL_CIRCLE_RADIUS_MIN;
+		mass = SMALL_CIRCLE_MASS;
+		printf("%d, %d, %d\n", color.r, color.g, color.b);
 	}
 
   void draw() { DrawCircle(position.x, position.y, radius, color); }
@@ -91,13 +107,6 @@ struct Circle {
   }
 };
 
-// https://cplusplus.com/forum/beginner/81180/
-// Returns a random float within min and max
-static float randf(const float min, const float max) {
-  float result = (rand() / static_cast<float>(RAND_MAX) * (max + 1)) + min;
-  return result;
-}
-
 // https://stackoverflow.com/questions/3749660/how-to-resize-array-in-c
 static void doubleCircleArraySize(Circle* arr, size_t& size) {
   const size_t newSize = size * 2;
@@ -111,10 +120,15 @@ static void doubleCircleArraySize(Circle* arr, size_t& size) {
 }
 
 int main() {
+	srand(GetTime());
+
   size_t smallCirclesArraySize = SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
   int numberOfSmallCirclesPresent = 0;
 	int numberOfSpawnKeyPresses = 0; // Counts the number of times the user has spawned 10 small circles
   Circle* smallCircles = new Circle[smallCirclesArraySize];
+
+	char smallCircleCountBuffer[10];
+	int numberOfSmallCirclesPresentFormatted;
 
 	float accumulator(0.0f);
 	float deltaTime(0.0f);
@@ -126,18 +140,19 @@ int main() {
 
 
 		if (IsKeyPressed(SPAWN_KEY)) {
+			numberOfSpawnKeyPresses += 1;
 			// Try to spawn 10 small circles
 			int numberOfSmallCirclesAfterSpawning = numberOfSmallCirclesPresent + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
 			// If there is no more space in the array, double its size
 			if (numberOfSmallCirclesAfterSpawning > smallCirclesArraySize) {
 				doubleCircleArraySize(smallCircles, smallCirclesArraySize);
-				printf("%d\n", smallCirclesArraySize);
 			}
 			// Spawn 10 small circles
 			for (size_t i = numberOfSmallCirclesPresent; i < numberOfSmallCirclesAfterSpawning; i++) {
 				smallCircles[i].spawn();
 			}
 			numberOfSmallCirclesPresent = numberOfSmallCirclesAfterSpawning;
+			printf("\n");
 		}
 
 		// Physics update
@@ -167,6 +182,9 @@ int main() {
 		for (size_t i = 0; i < numberOfSmallCirclesPresent; i++) {
 			smallCircles[i].draw();
 		}
+
+		numberOfSmallCirclesPresentFormatted = sprintf(smallCircleCountBuffer, "%d\n", numberOfSmallCirclesPresent);
+		DrawText(smallCircleCountBuffer, 10, 10, 30, BLACK);
 
 		EndDrawing();
   }
