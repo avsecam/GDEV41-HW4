@@ -17,7 +17,7 @@ const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
 const int SMALL_CIRCLE_RADIUS_MAX(10);
 const int SMALL_CIRCLE_MASS(1);
-const float SMALL_CIRCLE_VELOCITY_MIN(-100.0f);
+const float SMALL_CIRCLE_VELOCITY_MIN(50.0f);
 const float SMALL_CIRCLE_VELOCITY_MAX(100.0f);
 
 enum CircleSize {
@@ -54,8 +54,8 @@ struct Circle {
 			255
 		};
 		velocity = {
-			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX),
-			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX)
+			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * randf(-1.0f, 1.0f),
+			randf(SMALL_CIRCLE_VELOCITY_MIN, SMALL_CIRCLE_VELOCITY_MAX) * randf(-1.0f, 1.0f)
 		};
 		position = {
 			WINDOW_WIDTH / 2,
@@ -67,9 +67,10 @@ struct Circle {
   void draw() { DrawCircle(position.x, position.y, radius, color); }
 
 	void update(Vector2 force = {0.0f, 0.0f}, float timestep = TIMESTEP) {
-    acceleration = Vector2Add(
-      Vector2Scale(force, 1 / mass), (Vector2Scale(velocity, FRICTION))
-    );  // Sum of all forces
+    // acceleration = Vector2Add(
+    //   Vector2Scale(force, 1 / mass), (Vector2Scale(velocity, FRICTION))
+    // ); // With friction
+		acceleration = Vector2Scale(force, 1 / mass); // No friction
     velocity = Vector2Add(velocity, Vector2Scale(acceleration, TIMESTEP));
     velocity.x = (abs(velocity.x) < VELOCITY_THRESHOLD) ? 0.0f : velocity.x;
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
@@ -98,14 +99,13 @@ static float randf(const float min, const float max) {
 }
 
 // https://stackoverflow.com/questions/3749660/how-to-resize-array-in-c
-static void doubleCircleArraySize(Circle* arr, size_t size) {
+static void doubleCircleArraySize(Circle* arr, size_t& size) {
   const size_t newSize = size * 2;
   Circle* newArr = new Circle[newSize];
 
   memcpy(newArr, arr, size * sizeof(Circle));
 
   size = newSize;
-	printf("%d\n", size);
   delete[] arr;
   arr = newArr;
 }
@@ -131,6 +131,7 @@ int main() {
 			// If there is no more space in the array, double its size
 			if (numberOfSmallCirclesAfterSpawning > smallCirclesArraySize) {
 				doubleCircleArraySize(smallCircles, smallCirclesArraySize);
+				printf("%d\n", smallCirclesArraySize);
 			}
 			// Spawn 10 small circles
 			for (size_t i = numberOfSmallCirclesPresent; i < numberOfSmallCirclesAfterSpawning; i++) {
@@ -143,7 +144,18 @@ int main() {
 		accumulator += deltaTime;
 		while (accumulator >= TIMESTEP) {
 			for (size_t i = 0; i < numberOfSmallCirclesPresent; i++) {
-				smallCircles[i].update();
+				Circle* currentCircle = &smallCircles[i];
+				// Check if the circle should bounce off of the screen edge
+				bool circleIsOutOfBoundsX =
+						currentCircle->position.x >= (WINDOW_WIDTH - currentCircle->radius)
+						|| currentCircle->position.x <= currentCircle->radius;
+				bool circleIsOutOfBoundsY =
+						currentCircle->position.y >= (WINDOW_HEIGHT - currentCircle->radius)
+						|| currentCircle->position.y <= currentCircle->radius;
+				if (circleIsOutOfBoundsX) { currentCircle->velocity.x *= -1.0f; }
+				if (circleIsOutOfBoundsY) { currentCircle->velocity.y *= -1.0f; }
+
+				currentCircle->update();
 			}
 			accumulator -= TIMESTEP;
 		}
