@@ -60,8 +60,6 @@ struct Circle {
   Vector2 velocity;
   Vector2 position;
 
-  std::vector<Vector2> gridPositions;  // Location in the uniform grid
-
   Circle() {}
 
   // If big, spawn at bottom middle of screen
@@ -183,7 +181,7 @@ struct Circle {
 
   void setPosition(const Vector2 newPosition) {
     position = newPosition;
-    // refreshGridPositions();
+    refreshGridPositions();
   }
 
   void refreshGridPositions() {
@@ -195,16 +193,9 @@ struct Circle {
     Vector2 minGridPosition = convertToGridPosition(min);
     Vector2 maxGridPosition = convertToGridPosition(max);
 
-    gridPositions.clear();
-    gridPositions.push_back(minGridPosition);
-    gridPositions.push_back(maxGridPosition);
-
     // It also occupies spaces that are in between min and max
-    Vector2 newGridPosition;
     for (int i = minGridPosition.x; i < maxGridPosition.x; i++) {
       for (int j = minGridPosition.y; j > maxGridPosition.y; j--) {
-        newGridPosition = {static_cast<float>(i), static_cast<float>(j)};
-        gridPositions.push_back(newGridPosition);
       }
     }
   }
@@ -229,23 +220,65 @@ struct Circle {
   }
 
   // If a and b share at least one gridPosition, return true
-  static bool sharesGridPositions(const Circle& a, const Circle& b) {
-    for (size_t i = 0; i < a.gridPositions.size(); i++) {
-      for (size_t j = 0; j < b.gridPositions.size(); j++) {
-        if (a.gridPositions[i].x == b.gridPositions[j].x
-				&& a.gridPositions[i].y == b.gridPositions[j].y)
-          return true;
+  // static bool sharesGridPositions(const Circle& a, const Circle& b) {
+  //   for (size_t i = 0; i < a.gridPositions.size(); i++) {
+  //     for (size_t j = 0; j < b.gridPositions.size(); j++) {
+  //       if (a.gridPositions[i].x == b.gridPositions[j].x
+  // 			&& a.gridPositions[i].y == b.gridPositions[j].y)
+  //         return true;
+  //     }
+  //   }
+  //   return false;
+  // }
+};
+
+struct Cell {
+  Vector2 topRight;
+  int size = GRID_SIZE;
+  std::vector<Circle> objects;
+
+  Cell() {}
+
+  Cell(const Vector2 newTopRight) { topRight = newTopRight; }
+
+  void draw() {
+    DrawRectangleLines(topRight.x, topRight.y, GRID_SIZE, GRID_SIZE, RED);
+  }
+
+  // Take note of objects inside cell
+  void refreshObjects() {}
+};
+
+struct UniformGrid {
+  std::vector<std::vector<Cell>> cells;  // [row][column]
+
+  UniformGrid() {
+    for (size_t i = 0; i < WINDOW_HEIGHT; i += GRID_SIZE) {
+      std::vector<Cell> row;
+      for (size_t j = 0; j < WINDOW_WIDTH; j += GRID_SIZE) {
+        Vector2 cellTopRight = {static_cast<float>(j), static_cast<float>(i)};
+        row.push_back(Cell(cellTopRight));
+      }
+      cells.push_back(row);
+    }
+  }
+
+  void draw() {
+    for (size_t i = 0; i < cells.size(); i++) {
+      for (size_t j = 0; j < cells[i].size(); j++) {
+				cells[i][j].draw();
       }
     }
-    return false;
   }
 };
 
 int main() {
   srand(GetTime());
 
-  // Counts the number of times the user has spawned 10 small circles
+  // Counts the number of times the user has spawned a batch of small circles
   int numberOfSpawnKeyPresses = 0;
+
+  UniformGrid uniformGrid = UniformGrid();
 
   std::vector<Circle> smallCircles;
   std::vector<Circle> bigCircles;
@@ -315,12 +348,7 @@ int main() {
     ClearBackground(WHITE);
 
     // Draw grid
-    for (int i = GRID_SIZE; i < WINDOW_WIDTH; i += GRID_SIZE) {
-      DrawLine(i, 0, i, WINDOW_HEIGHT, RED);
-    }
-    for (int i = GRID_SIZE; i < WINDOW_HEIGHT; i += GRID_SIZE) {
-      DrawLine(0, i, WINDOW_WIDTH, i, RED);
-    }
+    uniformGrid.draw();
 
     // Draw circle
     for (size_t i = 0; i < smallCircles.size(); i++) {
