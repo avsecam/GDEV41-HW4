@@ -17,9 +17,9 @@ const KeyboardKey SPAWN_KEY(KEY_SPACE);
 enum CircleSize { small = 0, big = 1 };
 
 const float CIRCLE_VELOCITY_MIN(5.0f);
-const float CIRCLE_VELOCITY_MAX(100.0f);
+const float CIRCLE_VELOCITY_MAX(400.0f);
 
-const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(1);
+const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
 const int SMALL_CIRCLE_RADIUS_MAX(10);
 const int SMALL_CIRCLE_MASS(1);
@@ -106,18 +106,15 @@ struct Circle {
 
   // If idx is -1, double-checking collision will happen
   void handleCircleCollision(
-    const std::vector<Circle> circles, const size_t idx = -1
+    const std::vector<Circle*> circles, const size_t idx = -1
   ) {
     // Choose if the loop should start at 0 or at idx
     size_t iterator = (idx == -1) ? 0 : idx;
     for (size_t i = iterator; i < circles.size(); i++) {
       Circle* a = this;
-      Circle b = circles[i];
+      Circle b = *circles[i];
 
       if (a == &b) continue;
-
-      // If a and b don't share any gridPosition, continue loop
-      // if (!sharesGridPositions(*a, b)) continue;
 
       float sumOfRadii(pow(a->radius + b.radius, 2));
       float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
@@ -198,7 +195,7 @@ struct Circle {
     gridPositions.clear();
     gridPositions.push_back(minGridPosition);
 
-		// If the Circle overlaps with more than one cell
+    // If the Circle overlaps with more than one cell
     if (!Vector2Equals(minGridPosition, maxGridPosition)) {
       gridPositions.push_back(maxGridPosition);
       // It also occupies spaces that are in between min and max
@@ -230,24 +227,12 @@ struct Circle {
       floor(position.x / GRID_SIZE), floor(position.y / GRID_SIZE)};
     return gridPosition;
   }
-
-  // If a and b share at least one gridPosition, return true
-  static bool sharesGridPositions(const Circle& a, const Circle& b) {
-    for (size_t i = 0; i < a.gridPositions.size(); i++) {
-      for (size_t j = 0; j < b.gridPositions.size(); j++) {
-        if (a.gridPositions[i].x == b.gridPositions[j].x
-  			&& a.gridPositions[i].y == b.gridPositions[j].y)
-          return true;
-      }
-    }
-    return false;
-  }
 };
 
 struct Cell {
   Vector2 topRight;
   int size = GRID_SIZE;
-  std::vector<Circle> objects;
+  std::vector<Circle*> objects;
 
   Cell() {}
 
@@ -298,20 +283,22 @@ struct UniformGrid {
       }
     }
   }
+
+  void refresh() {}
 };
 
 static void refreshCellObjects(
-  UniformGrid* uniformGrid, const std::vector<Circle> objects
+  UniformGrid* uniformGrid, const std::vector<Circle*> objects
 ) {
   uniformGrid->clearCells();
   for (size_t i = 0; i < objects.size(); i++) {
-    for (size_t j = 0; j < objects[i].gridPositions.size(); j++) {
-      int gridX = objects[i].gridPositions[j].x;
-      int gridY = objects[i].gridPositions[j].y;
-			// Only add if within screen borders
-			if (gridY < uniformGrid->cells.size() && gridX < uniformGrid->cells[0].size()) {
-      	uniformGrid->cells[gridY][gridX].objects.push_back(objects[i]);
-			}
+    for (size_t j = 0; j < objects[i]->gridPositions.size(); j++) {
+      int gridX = objects[i]->gridPositions[j].x;
+      int gridY = objects[i]->gridPositions[j].y;
+      // Only add if within screen borders
+      if (gridY < uniformGrid->cells.size() && gridX < uniformGrid->cells[0].size()) {
+        uniformGrid->cells[gridY][gridX].objects.push_back(objects[i]);
+      }
     }
   }
 }
@@ -324,8 +311,10 @@ int main() {
 
   UniformGrid uniformGrid = UniformGrid();
 
-  std::vector<Circle> smallCircles;
-  std::vector<Circle> bigCircles;
+  std::vector<Circle*> circles;
+
+  int numberOfSmallCirclesPresent = 0;
+  int numberOfBigCirclesPresent = 0;
 
   char smallCircleCountBuffer[50];
   int numberOfSmallCirclesPresentFormatted;
@@ -350,44 +339,45 @@ int main() {
         numberOfSpawnKeyPresses += 1;
         // If user reaches 10 presses, spawn a big boy
         if (numberOfSpawnKeyPresses % 10 == 0) {
-          bigCircles.push_back(Circle());
-          bigCircles[bigCircles.size() - 1].spawn(CircleSize::big);
+          circles.push_back(new Circle());
+          circles[circles.size() - 1]->spawn(CircleSize::big);
           numberOfSpawnKeyPresses = 0;
+          numberOfBigCirclesPresent += 1;
         }
 
         // Spawn small circles
         int numberOfSmallCirclesAfterSpawning =
-          smallCircles.size() + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
-        for (size_t i = smallCircles.size();
-             i < numberOfSmallCirclesAfterSpawning; i++) {
-          smallCircles.push_back(Circle());
-          smallCircles[i].spawn();
+          numberOfSmallCirclesPresent + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
+        for (size_t i = circles.size(); i < numberOfSmallCirclesAfterSpawning;
+             i++) {
+          circles.push_back(new Circle());
+          circles[i]->spawn();
         }
+        numberOfSmallCirclesPresent = numberOfSmallCirclesAfterSpawning;
       }
 
       // Physics update
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
         // Re-add objects into cells
-        refreshCellObjects(&uniformGrid, smallCircles);
-        // refreshCellObjects(&uniformGrid, bigCircles);
+        refreshCellObjects(&uniformGrid, circles);
+
         // Go through every cell and do collision handling
-
-        for (size_t i = 0; i < smallCircles.size(); i++) {
-          Circle* currentCircle = &smallCircles[i];
-          currentCircle->handleCircleCollision(smallCircles, i);
-          currentCircle->handleCircleCollision(bigCircles);
-          currentCircle->handleEdgeCollision();
-          currentCircle->update();
+        for (size_t i = 0; i < uniformGrid.cells.size(); i++) {
+          for (size_t j = 0; j < uniformGrid.cells[i].size(); j++) {
+            std::vector<Circle*> objects = uniformGrid.cells[i][j].objects;
+						if (objects.empty()) continue;
+            for (size_t i = 0; i < objects.size(); i++) {
+              objects[i]->handleCircleCollision(objects, i);
+              objects[i]->handleEdgeCollision();
+            }
+          }
         }
 
-        for (size_t i = 0; i < bigCircles.size(); i++) {
-          Circle* currentCircle = &bigCircles[i];
-          currentCircle->handleCircleCollision(smallCircles);
-          currentCircle->handleCircleCollision(bigCircles, i);
-          currentCircle->handleEdgeCollision();
-          currentCircle->update();
+        for (size_t i = 0; i < circles.size(); i++) {
+          circles[i]->update();
         }
+
         accumulator -= TIMESTEP;
       }
     }
@@ -400,20 +390,19 @@ int main() {
     uniformGrid.draw();
 
     // Draw circle
-    for (size_t i = 0; i < smallCircles.size(); i++) {
-      smallCircles[i].draw();
-    }
-    for (size_t i = 0; i < bigCircles.size(); i++) {
-      bigCircles[i].draw();
+    for (size_t i = 0; i < circles.size(); i++) {
+      circles[i]->draw();
     }
 
     // Small Circle Counter
-    numberOfSmallCirclesPresentFormatted =
-      sprintf(smallCircleCountBuffer, "%d Small Circles", smallCircles.size());
+    numberOfSmallCirclesPresentFormatted = sprintf(
+      smallCircleCountBuffer, "%d Small Circles", numberOfSmallCirclesPresent
+    );
     DrawText(smallCircleCountBuffer, 10, 10, 20, BLACK);
     // Big Circle Counter
-    numberOfBigCirclesPresentFormatted =
-      sprintf(bigCircleCountBuffer, "%d Big Circles", bigCircles.size());
+    numberOfBigCirclesPresentFormatted = sprintf(
+      bigCircleCountBuffer, "%d Big Circles", numberOfBigCirclesPresent
+    );
     DrawText(bigCircleCountBuffer, 10, 30, 20, BLACK);
 
     EndDrawing();
