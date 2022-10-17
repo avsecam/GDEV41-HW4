@@ -130,16 +130,6 @@ struct Circle {
         Vector2 relativeVelocityABNormalized(Vector2Normalize(relativeVelocityAB
         ));
 
-        // I think we should also separate balls that are touching
-        if (Vector2Length(relativeVelocityAB) <= 0.1f) {
-          a->setPosition(Vector2Subtract(
-            a->position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          ));
-          b.setPosition(Vector2Add(
-            b.position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          ));
-        }
-
         // Collision response
         // Check dot product between collision normal and relative velocity
         if (Vector2DotProduct(relativeVelocityABNormalized, collisionNormalABNormalized) > 0) {
