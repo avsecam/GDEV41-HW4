@@ -28,9 +28,11 @@ const int NUMBER_OF_PRESSES_UNTIL_BIG_CIRCLE_SPAWNS(10);
 const int BIG_CIRCLE_RADIUS(25);
 const int BIG_CIRCLE_MASS(10);
 
-const float FRICTION(-0.75f);
+const float FRICTION(-0.1f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
+
+const int GRID_SIZE(40);
 
 // https://cplusplus.com/forum/beginner/81180/
 // Returns a random float within min and max
@@ -58,6 +60,8 @@ struct Circle {
   Vector2 velocity;
   Vector2 position;
 
+  std::vector<Vector2> gridPositions;  // Location in the uniform grid
+
   Circle() {}
 
   // If big, spawn at bottom middle of screen
@@ -69,46 +73,54 @@ struct Circle {
       static_cast<unsigned char>(rand() % 256), 255};
     velocity.x =
       randf(CIRCLE_VELOCITY_MIN, CIRCLE_VELOCITY_MAX) * directionMultiplier();
+
     if (size == CircleSize::small) {
       radius = rand() % (SMALL_CIRCLE_RADIUS_MAX - SMALL_CIRCLE_RADIUS_MIN) +
                SMALL_CIRCLE_RADIUS_MIN;
       mass = SMALL_CIRCLE_MASS;
-      position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+      setPosition({WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2});
       velocity.y =
         randf(CIRCLE_VELOCITY_MIN, CIRCLE_VELOCITY_MAX) * directionMultiplier();
     } else {
       radius = BIG_CIRCLE_RADIUS;
       mass = BIG_CIRCLE_MASS;
-      position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT - (float)radius};
+      setPosition({WINDOW_WIDTH / 2, WINDOW_HEIGHT - (float)radius});
       velocity.y = randf(CIRCLE_VELOCITY_MIN, CIRCLE_VELOCITY_MAX);
     }
   }
 
   void draw() { DrawCircle(position.x, position.y, radius, color); }
 
+  // Update physics and gridPosition
   void update(
     const Vector2 force = {0.0f, 0.0f}, const float timestep = TIMESTEP
   ) {
-    // acceleration = Vector2Add(
-    //   Vector2Scale(force, 1 / mass), (Vector2Scale(velocity, FRICTION))
-    // ); // With friction
-    acceleration = Vector2Scale(force, 1 / mass);  // No friction
+    acceleration = Vector2Add(
+      Vector2Scale(force, 1 / mass), (Vector2Scale(velocity, FRICTION))
+    );
     velocity = Vector2Add(velocity, Vector2Scale(acceleration, TIMESTEP));
     velocity.x = (abs(velocity.x) < VELOCITY_THRESHOLD) ? 0.0f : velocity.x;
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
-    position = Vector2Add(position, Vector2Scale(velocity, TIMESTEP));
+    setPosition(Vector2Add(position, Vector2Scale(velocity, TIMESTEP)));
   }
 
-  void handleCircleCollision(const std::vector<Circle> circles) {
-    for (int i = 0; i < circles.size(); i++) {
-			Circle* a = this;
+  // If idx is -1, double-checking collision will happen
+  void handleCircleCollision(
+    const std::vector<Circle> circles, const size_t idx = -1
+  ) {
+    // Choose if the loop should start at 0 or at idx
+    size_t iterator = (idx == -1) ? 0 : idx;
+    for (size_t i = iterator; i < circles.size(); i++) {
+      Circle* a = this;
       Circle b = circles[i];
 
-			if (a == &b) continue;
+      if (a == &b) continue;
+
+      // If a and b don't share any gridPosition, continue loop
+      // if (!sharesGridPositions(*a, b)) continue;
 
       float sumOfRadii(pow(a->radius + b.radius, 2));
-      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position)
-      );
+      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
 
       // Collision detected
       if (sumOfRadii >= distanceBetweenCenters) {
@@ -123,12 +135,12 @@ struct Circle {
 
         // I think we should also separate balls that are touching
         if (Vector2Length(relativeVelocityAB) <= 0.1f) {
-          a->position = Vector2Subtract(
+          a->setPosition(Vector2Subtract(
             a->position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          );
-          b.position = Vector2Add(
+          ));
+          b.setPosition(Vector2Add(
             b.position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          );
+          ));
         }
 
         // Collision response
@@ -169,6 +181,34 @@ struct Circle {
     }
   }
 
+  void setPosition(const Vector2 newPosition) {
+    position = newPosition;
+    // refreshGridPositions();
+  }
+
+  void refreshGridPositions() {
+    // Get the min(bottom-left) and max(top-right) extents of the Circle (just
+    // like an AABB)
+    Vector2 min = {position.x - radius, position.y + radius};
+    Vector2 max = {position.x + radius, position.y - radius};
+
+    Vector2 minGridPosition = convertToGridPosition(min);
+    Vector2 maxGridPosition = convertToGridPosition(max);
+
+    gridPositions.clear();
+    gridPositions.push_back(minGridPosition);
+    gridPositions.push_back(maxGridPosition);
+
+    // It also occupies spaces that are in between min and max
+    Vector2 newGridPosition;
+    for (int i = minGridPosition.x; i < maxGridPosition.x; i++) {
+      for (int j = minGridPosition.y; j > maxGridPosition.y; j--) {
+        newGridPosition = {static_cast<float>(i), static_cast<float>(j)};
+        gridPositions.push_back(newGridPosition);
+      }
+    }
+  }
+
   static float getImpulse(
     Circle a, Circle b, Vector2 relativeVelocity, Vector2 collisionNormal
   ) {
@@ -180,6 +220,24 @@ struct Circle {
     ));
 
     return impulse;
+  }
+
+  static Vector2 convertToGridPosition(const Vector2 position) {
+    Vector2 gridPosition = {
+      floor(position.x / GRID_SIZE), floor(position.y / GRID_SIZE)};
+    return gridPosition;
+  }
+
+  // If a and b share at least one gridPosition, return true
+  static bool sharesGridPositions(const Circle& a, const Circle& b) {
+    for (size_t i = 0; i < a.gridPositions.size(); i++) {
+      for (size_t j = 0; j < b.gridPositions.size(); j++) {
+        if (a.gridPositions[i].x == b.gridPositions[j].x
+				&& a.gridPositions[i].y == b.gridPositions[j].y)
+          return true;
+      }
+    }
+    return false;
   }
 };
 
@@ -200,54 +258,71 @@ int main() {
   float accumulator(0.0f);
   float deltaTime(0.0f);
 
+  bool paused(false);
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_NAME);
   SetTargetFPS(TARGET_FPS);
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
 
-    if (IsKeyPressed(SPAWN_KEY)) {
-      numberOfSpawnKeyPresses += 1;
-      // If user reaches 10 presses, spawn a big boy
-      if (numberOfSpawnKeyPresses % 10 == 0) {
-        bigCircles.push_back(Circle());
-        bigCircles[bigCircles.size() - 1].spawn(CircleSize::big);
-        numberOfSpawnKeyPresses = 0;
-      }
-
-      // Spawn small circles
-      int numberOfSmallCirclesAfterSpawning =
-        smallCircles.size() + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
-      for (size_t i = smallCircles.size();
-           i < numberOfSmallCirclesAfterSpawning; i++) {
-        smallCircles.push_back(Circle());
-        smallCircles[i].spawn();
-      }
+    if (IsKeyPressed(KEY_A)) {
+      paused = !paused;
     }
 
-    // Physics update
-    accumulator += deltaTime;
-    while (accumulator >= TIMESTEP) {
-      for (size_t i = 0; i < smallCircles.size(); i++) {
-        Circle* currentCircle = &smallCircles[i];
-        currentCircle->handleCircleCollision(smallCircles);
-        currentCircle->handleCircleCollision(bigCircles);
-        currentCircle->handleEdgeCollision();
-        currentCircle->update();
+    if (!paused) {
+      if (IsKeyPressed(SPAWN_KEY)) {
+        numberOfSpawnKeyPresses += 1;
+        // If user reaches 10 presses, spawn a big boy
+        if (numberOfSpawnKeyPresses % 10 == 0) {
+          bigCircles.push_back(Circle());
+          bigCircles[bigCircles.size() - 1].spawn(CircleSize::big);
+          numberOfSpawnKeyPresses = 0;
+        }
+
+        // Spawn small circles
+        int numberOfSmallCirclesAfterSpawning =
+          smallCircles.size() + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
+        for (size_t i = smallCircles.size();
+             i < numberOfSmallCirclesAfterSpawning; i++) {
+          smallCircles.push_back(Circle());
+          smallCircles[i].spawn();
+        }
       }
-      for (size_t i = 0; i < bigCircles.size(); i++) {
-        Circle* currentCircle = &bigCircles[i];
-        currentCircle->handleCircleCollision(smallCircles);
-        currentCircle->handleCircleCollision(bigCircles);
-        currentCircle->handleEdgeCollision();
-        currentCircle->update();
+
+      // Physics update
+      accumulator += deltaTime;
+      while (accumulator >= TIMESTEP) {
+        for (size_t i = 0; i < smallCircles.size(); i++) {
+          Circle* currentCircle = &smallCircles[i];
+          currentCircle->handleCircleCollision(smallCircles, i);
+          currentCircle->handleCircleCollision(bigCircles);
+          currentCircle->handleEdgeCollision();
+          currentCircle->update();
+        }
+
+        for (size_t i = 0; i < bigCircles.size(); i++) {
+          Circle* currentCircle = &bigCircles[i];
+          currentCircle->handleCircleCollision(smallCircles);
+          currentCircle->handleCircleCollision(bigCircles, i);
+          currentCircle->handleEdgeCollision();
+          currentCircle->update();
+        }
+        accumulator -= TIMESTEP;
       }
-      accumulator -= TIMESTEP;
     }
 
     // Draw
     BeginDrawing();
     ClearBackground(WHITE);
 
+    // Draw grid
+    for (int i = GRID_SIZE; i < WINDOW_WIDTH; i += GRID_SIZE) {
+      DrawLine(i, 0, i, WINDOW_HEIGHT, RED);
+    }
+    for (int i = GRID_SIZE; i < WINDOW_HEIGHT; i += GRID_SIZE) {
+      DrawLine(0, i, WINDOW_WIDTH, i, RED);
+    }
+
+    // Draw circle
     for (size_t i = 0; i < smallCircles.size(); i++) {
       smallCircles[i].draw();
     }
