@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <set>
 #include <vector>
 
 const int WINDOW_WIDTH(1280);
@@ -13,6 +14,8 @@ const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
 
 const KeyboardKey SPAWN_KEY(KEY_SPACE);
+const KeyboardKey PAUSE_KEY(KEY_A);
+const KeyboardKey DETAILS_KEY(KEY_Q);
 
 enum CircleSize { small = 0, big = 1 };
 
@@ -59,6 +62,7 @@ struct Circle {
   Vector2 acceleration;
   Vector2 velocity;
   Vector2 position;
+	Vector2 oldPosition;
 
   std::vector<Vector2> gridPositions;
 
@@ -84,7 +88,7 @@ struct Circle {
     } else {
       radius = BIG_CIRCLE_RADIUS;
       mass = BIG_CIRCLE_MASS;
-      setPosition({WINDOW_WIDTH / 2, WINDOW_HEIGHT - (float)radius});
+      setPosition({WINDOW_WIDTH / 2, WINDOW_HEIGHT - static_cast<float>(radius + 1)});
       velocity.y = randf(CIRCLE_VELOCITY_MIN, CIRCLE_VELOCITY_MAX);
     }
   }
@@ -101,6 +105,7 @@ struct Circle {
     velocity = Vector2Add(velocity, Vector2Scale(acceleration, TIMESTEP));
     velocity.x = (abs(velocity.x) < VELOCITY_THRESHOLD) ? 0.0f : velocity.x;
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
+		oldPosition = position;
     setPosition(Vector2Add(position, Vector2Scale(velocity, TIMESTEP)));
   }
 
@@ -161,9 +166,11 @@ struct Circle {
     bool circleIsOutOfBoundsY =
       position.y >= (screenHeight - radius) || position.y <= radius;
     if (circleIsOutOfBoundsX) {
+			setPosition(oldPosition);
       velocity.x *= -1.0f;
     }
     if (circleIsOutOfBoundsY) {
+			setPosition(oldPosition);
       velocity.y *= -1.0f;
     }
   }
@@ -235,6 +242,7 @@ struct Cell {
       char buffer[10];
       sprintf(buffer, "%d,%d", x, y);
       DrawText(buffer, topRight.x, topRight.y, 12, BLACK);
+
       sprintf(buffer, "%d", objects.size());
       DrawText(
         buffer, topRight.x + (GRID_SIZE / 2), topRight.y + (GRID_SIZE / 2), 15,
@@ -245,7 +253,7 @@ struct Cell {
 };
 
 struct UniformGrid {
-  std::vector<std::vector<Cell>> cells;  // [row][column]
+  std::vector<std::vector<Cell>> cells;  // [row][column], [y][x]
 
   UniformGrid() {
     for (size_t i = 0; i < WINDOW_HEIGHT; i += GRID_SIZE) {
@@ -273,20 +281,21 @@ struct UniformGrid {
       }
     }
   }
-
-  void refresh() {}
 };
 
+// Add objects to cells
 static void refreshCellObjects(
-  UniformGrid* uniformGrid, const std::vector<Circle*> objects
+  UniformGrid* uniformGrid, std::vector<Circle*> objects
 ) {
   uniformGrid->clearCells();
   for (size_t i = 0; i < objects.size(); i++) {
     for (size_t j = 0; j < objects[i]->gridPositions.size(); j++) {
       int gridX = objects[i]->gridPositions[j].x;
       int gridY = objects[i]->gridPositions[j].y;
-      // Only add if within screen borders
-      if (gridY < uniformGrid->cells.size() && gridX < uniformGrid->cells[0].size()) {
+      // Only add if object is inside cells within screen borders
+      bool isInsideValidCell = gridY < uniformGrid->cells.size() &&
+                               gridX < uniformGrid->cells[0].size();
+      if (isInsideValidCell) {
         uniformGrid->cells[gridY][gridX].objects.push_back(objects[i]);
       }
     }
@@ -315,14 +324,20 @@ int main() {
   float deltaTime(0.0f);
 
   bool paused(false);
+	bool showGrid(false);
+
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_NAME);
   SetTargetFPS(TARGET_FPS);
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
 
-    if (IsKeyPressed(KEY_A)) {
+    if (IsKeyPressed(PAUSE_KEY)) {
       paused = !paused;
     }
+
+		if (IsKeyPressed(DETAILS_KEY)) {
+			showGrid = !showGrid;
+		}
 
     if (!paused) {
       if (IsKeyPressed(SPAWN_KEY)) {
@@ -356,7 +371,7 @@ int main() {
         for (size_t i = 0; i < uniformGrid.cells.size(); i++) {
           for (size_t j = 0; j < uniformGrid.cells[i].size(); j++) {
             std::vector<Circle*> objects = uniformGrid.cells[i][j].objects;
-						if (objects.empty()) continue;
+            if (objects.empty()) continue;
             for (size_t i = 0; i < objects.size(); i++) {
               objects[i]->handleCircleCollision(objects, i);
               objects[i]->handleEdgeCollision();
@@ -377,7 +392,9 @@ int main() {
     ClearBackground(WHITE);
 
     // Draw grid
-    uniformGrid.draw();
+		if (showGrid) {
+    	uniformGrid.draw();
+		}
 
     // Draw circle
     for (size_t i = 0; i < circles.size(); i++) {
@@ -394,9 +411,20 @@ int main() {
       bigCircleCountBuffer, "%d Big Circles", numberOfBigCirclesPresent
     );
     DrawText(bigCircleCountBuffer, 10, 30, 20, BLACK);
+		
+		DrawText("Press Q to toggle uniform grid visibility.", 10, 50, 20, BLACK);
 
+		if (paused) {
+			DrawText("Press A to resume.", 150, (WINDOW_HEIGHT / 2) - 50, 100, ORANGE);
+		} else {
+			DrawText("Press A to pause.", 10, 70, 20, BLACK);
+		}
     EndDrawing();
   }
 
+	for (size_t i = 0; i < circles.size(); i++) {
+		delete circles[i];
+	}
+	
   return 0;
 }
