@@ -32,11 +32,11 @@ const int NUMBER_OF_PRESSES_UNTIL_BIG_CIRCLE_SPAWNS(10);
 const int BIG_CIRCLE_RADIUS(25);
 const int BIG_CIRCLE_MASS(10);
 
-const float FRICTION(-0.1f);
+const float FRICTION(-0.0f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
 
-const int GRID_SIZE(40);
+const int GRID_SIZE(60);
 
 // https://cplusplus.com/forum/beginner/81180/
 // Returns a random float within min and max
@@ -120,7 +120,7 @@ struct Circle {
       Circle* a = this;
       Circle b = *circles[i];
 
-      if (a == &b) continue;
+      // if (a == &b) continue;
 
       float sumOfRadii(pow(a->radius + b.radius, 2));
       float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
@@ -197,8 +197,8 @@ struct Circle {
     if (!Vector2Equals(minGridPosition, maxGridPosition)) {
       gridPositions.push_back(maxGridPosition);
       // It also occupies spaces that are in between min and max
-      for (int i = minGridPosition.x; i < maxGridPosition.x; i++) {
-        for (int j = minGridPosition.y; j > maxGridPosition.y; j--) {
+      for (int i = minGridPosition.x + 1; i < maxGridPosition.x; i++) {
+        for (int j = minGridPosition.y - 1; j > maxGridPosition.y; j--) {
           Vector2 newGridPosition = {
             static_cast<float>(i), static_cast<float>(j)};
           gridPositions.push_back(newGridPosition);
@@ -374,7 +374,7 @@ int main() {
             std::vector<Circle*> objects = uniformGrid.cells[i][j].objects;
             if (objects.empty()) continue;
             for (size_t i = 0; i < objects.size(); i++) {
-              objects[i]->handleCircleCollision(objects, i);
+              objects[i]->handleCircleCollision(objects);
               objects[i]->handleEdgeCollision();
             }
           }

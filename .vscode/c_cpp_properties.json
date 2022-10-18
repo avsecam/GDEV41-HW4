@@ -1,15 +1,15 @@
 {
   "configurations": [
     {
-      "name": "windows-gcc-x86",
+      "name": "windows-clang-x86",
       "includePath": [
         "${workspaceFolder}/**",
         "${workspaceFolder}/../raylib/**"
       ],
-      "compilerPath": "A:/Other/MinGW/bin/gcc.exe",
+      "compilerPath": "A:/Other/MinGW/bin/g++.exe",
       "cStandard": "${default}",
       "cppStandard": "${default}",
-      "intelliSenseMode": "windows-gcc-x86",
+      "intelliSenseMode": "windows-clang-x86",
       "compilerArgs": [
         ""
       ]
