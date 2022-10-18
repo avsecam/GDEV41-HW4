@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <raylib.h>
 #include <raymath.h>
 #include <stdio.h>
@@ -8,7 +9,7 @@
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
-const char* WINDOW_NAME("Spatial Data Structures");
+const char* WINDOW_NAME("Spatial Data Structures - Uniform Grid");
 
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
