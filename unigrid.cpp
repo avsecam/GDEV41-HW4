@@ -389,7 +389,7 @@ int main() {
 
     // Draw
     BeginDrawing();
-    ClearBackground(WHITE);
+    ClearBackground(RAYWHITE);
 
     // Draw grid
 		if (showGrid) {
