@@ -191,20 +191,20 @@ struct Circle {
     Vector2 maxGridPosition = convertToGridPosition(max);
 
     gridPositions.clear();
-    gridPositions.push_back(minGridPosition);
 
-    // If the Circle overlaps with more than one cell
-    if (!Vector2Equals(minGridPosition, maxGridPosition)) {
-      gridPositions.push_back(maxGridPosition);
-      // It also occupies spaces that are in between min and max
-      for (int i = minGridPosition.x + 1; i < maxGridPosition.x; i++) {
-        for (int j = minGridPosition.y - 1; j > maxGridPosition.y; j--) {
-          Vector2 newGridPosition = {
-            static_cast<float>(i), static_cast<float>(j)};
-          gridPositions.push_back(newGridPosition);
-        }
-      }
-    }
+		if (Vector2Equals(minGridPosition, maxGridPosition)) {
+			// If the circle is in only one cell:
+			gridPositions.push_back(minGridPosition);
+		} else {
+			// Occupies spaces that are in between min and max
+			for (int i = minGridPosition.x; i <= maxGridPosition.x; i++) {
+				for (int j = minGridPosition.y; j >= maxGridPosition.y; j--) {
+					Vector2 newGridPosition = {
+						static_cast<float>(i), static_cast<float>(j)};
+					gridPositions.push_back(newGridPosition);
+				}
+			}
+		}
   }
 
   static float getImpulse(
@@ -344,7 +344,7 @@ int main() {
       if (IsKeyPressed(SPAWN_KEY)) {
         numberOfSpawnKeyPresses += 1;
         // If user reaches 10 presses, spawn a big boy
-        if (numberOfSpawnKeyPresses % 10 == 0) {
+        if (numberOfSpawnKeyPresses % NUMBER_OF_PRESSES_UNTIL_BIG_CIRCLE_SPAWNS == 0) {
           circles.push_back(new Circle());
           circles[circles.size() - 1]->spawn(CircleSize::big);
           numberOfSpawnKeyPresses = 0;
@@ -371,10 +371,13 @@ int main() {
         // Go through every cell and do collision handling
         for (size_t i = 0; i < uniformGrid.cells.size(); i++) {
           for (size_t j = 0; j < uniformGrid.cells[i].size(); j++) {
+						bool shouldHandleCircleCollision(true);
             std::vector<Circle*> objects = uniformGrid.cells[i][j].objects;
             if (objects.empty()) continue;
+						// If there are less than 2 objects, don't handle Circle collision
+						if (objects.size() < 2) shouldHandleCircleCollision = false;
             for (size_t i = 0; i < objects.size(); i++) {
-              objects[i]->handleCircleCollision(objects);
+							if (shouldHandleCircleCollision) objects[i]->handleCircleCollision(objects);
               objects[i]->handleEdgeCollision();
             }
           }
