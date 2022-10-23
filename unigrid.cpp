@@ -365,6 +365,11 @@ int main() {
       // Physics update
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
+				// Move objects first!
+        for (size_t i = 0; i < circles.size(); i++) {
+          circles[i]->update();
+        }
+
         // Re-add objects into cells
         refreshCellObjects(&uniformGrid, circles);
 
@@ -381,10 +386,6 @@ int main() {
               objects[i]->handleEdgeCollision();
             }
           }
-        }
-
-        for (size_t i = 0; i < circles.size(); i++) {
-          circles[i]->update();
         }
 
         accumulator -= TIMESTEP;

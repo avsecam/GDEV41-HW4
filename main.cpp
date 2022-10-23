@@ -229,17 +229,17 @@ int main() {
     while (accumulator >= TIMESTEP) {
       for (size_t i = 0; i < smallCircles.size(); i++) {
         Circle* currentCircle = &smallCircles[i];
+        currentCircle->update();
         currentCircle->handleCircleCollision(smallCircles);
         currentCircle->handleCircleCollision(bigCircles);
         currentCircle->handleEdgeCollision();
-        currentCircle->update();
       }
       for (size_t i = 0; i < bigCircles.size(); i++) {
         Circle* currentCircle = &bigCircles[i];
+        currentCircle->update();
         currentCircle->handleCircleCollision(smallCircles);
         currentCircle->handleCircleCollision(bigCircles);
         currentCircle->handleEdgeCollision();
-        currentCircle->update();
       }
       accumulator -= TIMESTEP;
     }
