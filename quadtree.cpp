@@ -319,6 +319,8 @@ struct Quad {
 
 	// Recursively clear all quads of objects
 	void clear() {
+		if (!topLeftChild && !topRightChild && !bottomLeftChild && !bottomRightChild) objects.clear();
+
 		if (topLeftChild) topLeftChild->clear();
 		if (topRightChild) topRightChild->clear();
 		if (bottomLeftChild) bottomLeftChild->clear();
