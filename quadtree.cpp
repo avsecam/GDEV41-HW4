@@ -13,6 +13,8 @@ const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
 
 const KeyboardKey SPAWN_KEY(KEY_SPACE);
+const KeyboardKey PAUSE_KEY(KEY_A);
+const KeyboardKey DETAILS_KEY(KEY_Q);
 
 enum CircleSize { small = 0, big = 1 };
 
@@ -31,6 +33,8 @@ const int BIG_CIRCLE_MASS(10);
 const float FRICTION(-0.75f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
+
+const int MAX_DEPTH(5);
 
 // https://cplusplus.com/forum/beginner/81180/
 // Returns a random float within min and max
@@ -99,16 +103,19 @@ struct Circle {
     position = Vector2Add(position, Vector2Scale(velocity, TIMESTEP));
   }
 
-  void handleCircleCollision(const std::vector<Circle> circles) {
-    for (int i = 0; i < circles.size(); i++) {
-			Circle* a = this;
-      Circle b = circles[i];
+  void handleCircleCollision(
+    const std::vector<Circle*> circles, const size_t idx = -1
+  ) {
+    // Choose if the loop should start at 0 or at idx
+    size_t iterator = (idx == -1) ? 0 : idx;
+    for (size_t i = iterator; i < circles.size(); i++) {
+      Circle* a = this;
+      Circle b = *circles[i];
 
-			if (a == &b) continue;
+      // if (a == &b) continue;
 
       float sumOfRadii(pow(a->radius + b.radius, 2));
-      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position)
-      );
+      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
 
       // Collision detected
       if (sumOfRadii >= distanceBetweenCenters) {
@@ -120,16 +127,6 @@ struct Circle {
         );
         Vector2 relativeVelocityABNormalized(Vector2Normalize(relativeVelocityAB
         ));
-
-        // I think we should also separate balls that are touching
-        if (Vector2Length(relativeVelocityAB) <= 0.1f) {
-          a->position = Vector2Subtract(
-            a->position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          );
-          b.position = Vector2Add(
-            b.position, Vector2Scale(collisionNormalABNormalized, 0.5f)
-          );
-        }
 
         // Collision response
         // Check dot product between collision normal and relative velocity
@@ -183,14 +180,57 @@ struct Circle {
   }
 };
 
+struct Quad {
+  Vector2 topRight;
+  int size;
+  int depth;
+
+  Quad* topLeftChild;
+  Quad* topRightChild;
+  Quad* bottomLeftChild;
+  Quad* bottomRightChild;
+
+  std::vector<Circle*> objects;
+
+  Quad() {
+    topRight = {0, 0};
+    size = (WINDOW_HEIGHT > WINDOW_WIDTH) ? WINDOW_HEIGHT : WINDOW_WIDTH;
+    depth = 1;
+  }
+
+  Quad(const Vector2 newTopRight) { topRight = newTopRight; }
+
+  // Show grid position if x and y are greater than -1
+  void draw(const int x = -1, const int y = -1) {
+    DrawRectangleLines(topRight.x, topRight.y, size, size, RED);
+    if (x >= 0 && y >= 0) {
+      char buffer[10];
+      sprintf(buffer, "%d,%d", x, y);
+      DrawText(buffer, topRight.x, topRight.y, 12, BLACK);
+
+      sprintf(buffer, "%d", objects.size());
+      DrawText(
+        buffer, topRight.x + (size / 2), topRight.y + (size / 2), 15, GREEN
+      );
+    }
+  }
+
+  // Insert an object into the appropriate
+  void insert() {}
+};
+
 int main() {
   srand(GetTime());
 
   // Counts the number of times the user has spawned 10 small circles
   int numberOfSpawnKeyPresses = 0;
 
-  std::vector<Circle> smallCircles;
-  std::vector<Circle> bigCircles;
+  Quad quadtree = Quad();
+
+  std::vector<Circle*> circles;
+
+  int numberOfSmallCirclesPresent = 0;
+  int numberOfBigCirclesPresent = 0;
 
   char smallCircleCountBuffer[50];
   int numberOfSmallCirclesPresentFormatted;
@@ -200,68 +240,67 @@ int main() {
   float accumulator(0.0f);
   float deltaTime(0.0f);
 
+  bool paused(false);
+  bool showTree(false);
+
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_NAME);
   SetTargetFPS(TARGET_FPS);
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
 
-    if (IsKeyPressed(SPAWN_KEY)) {
-      numberOfSpawnKeyPresses += 1;
-      // If user reaches 10 presses, spawn a big boy
-      if (numberOfSpawnKeyPresses % 10 == 0) {
-        bigCircles.push_back(Circle());
-        bigCircles[bigCircles.size() - 1].spawn(CircleSize::big);
-        numberOfSpawnKeyPresses = 0;
+    if (!paused) {
+      if (IsKeyPressed(SPAWN_KEY)) {
+        numberOfSpawnKeyPresses += 1;
+        // If user reaches 10 presses, spawn a big boy
+        if (numberOfSpawnKeyPresses % NUMBER_OF_PRESSES_UNTIL_BIG_CIRCLE_SPAWNS == 0) {
+          circles.push_back(new Circle());
+          circles[circles.size() - 1]->spawn(CircleSize::big);
+          numberOfSpawnKeyPresses = 0;
+          numberOfBigCirclesPresent += 1;
+        }
+
+        // Spawn small circles
+        int numberOfSmallCirclesAfterSpawning =
+          numberOfSmallCirclesPresent + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
+        for (size_t i = circles.size(); i < numberOfSmallCirclesAfterSpawning;
+             i++) {
+          circles.push_back(new Circle());
+          circles[i]->spawn();
+        }
+        numberOfSmallCirclesPresent = numberOfSmallCirclesAfterSpawning;
       }
 
-      // Spawn small circles
-      int numberOfSmallCirclesAfterSpawning =
-        smallCircles.size() + SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY;
-      for (size_t i = smallCircles.size();
-           i < numberOfSmallCirclesAfterSpawning; i++) {
-        smallCircles.push_back(Circle());
-        smallCircles[i].spawn();
+      // Physics update
+      accumulator += deltaTime;
+      while (accumulator >= TIMESTEP) {
+        for (size_t i = 0; i < circles.size(); i++) {
+          Circle* currentCircle = circles[i];
+          currentCircle->update();
+          currentCircle->handleCircleCollision(circles);
+          currentCircle->handleEdgeCollision();
+        }
+        accumulator -= TIMESTEP;
       }
-    }
-
-    // Physics update
-    accumulator += deltaTime;
-    while (accumulator >= TIMESTEP) {
-      for (size_t i = 0; i < smallCircles.size(); i++) {
-        Circle* currentCircle = &smallCircles[i];
-        currentCircle->update();
-        currentCircle->handleCircleCollision(smallCircles);
-        currentCircle->handleCircleCollision(bigCircles);
-        currentCircle->handleEdgeCollision();
-      }
-      for (size_t i = 0; i < bigCircles.size(); i++) {
-        Circle* currentCircle = &bigCircles[i];
-        currentCircle->update();
-        currentCircle->handleCircleCollision(smallCircles);
-        currentCircle->handleCircleCollision(bigCircles);
-        currentCircle->handleEdgeCollision();
-      }
-      accumulator -= TIMESTEP;
     }
 
     // Draw
     BeginDrawing();
     ClearBackground(WHITE);
 
-    for (size_t i = 0; i < smallCircles.size(); i++) {
-      smallCircles[i].draw();
+    if (showTree) {
     }
-    for (size_t i = 0; i < bigCircles.size(); i++) {
-      bigCircles[i].draw();
+
+    for (size_t i = 0; i < circles.size(); i++) {
+      circles[i]->draw();
     }
 
     // Small Circle Counter
     numberOfSmallCirclesPresentFormatted =
-      sprintf(smallCircleCountBuffer, "%d Small Circles", smallCircles.size());
+      sprintf(smallCircleCountBuffer, "%d Small Circles", numberOfSmallCirclesPresent);
     DrawText(smallCircleCountBuffer, 10, 10, 20, BLACK);
     // Big Circle Counter
     numberOfBigCirclesPresentFormatted =
-      sprintf(bigCircleCountBuffer, "%d Big Circles", bigCircles.size());
+      sprintf(bigCircleCountBuffer, "%d Big Circles", numberOfBigCirclesPresent);
     DrawText(bigCircleCountBuffer, 10, 30, 20, BLACK);
 
     EndDrawing();
