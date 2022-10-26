@@ -34,6 +34,8 @@ const float FRICTION(-0.75f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
 
+enum QuadPosition { topLeft, topRight, bottomLeft, bottomRight };
+
 const int MAX_DEPTH(5);
 
 // https://cplusplus.com/forum/beginner/81180/
@@ -186,7 +188,7 @@ struct Quad {
   int size;
   int depth;
 
-	Quad* parent;
+  Quad* parent;
 
   Quad* topLeftChild;
   Quad* topRightChild;
@@ -202,10 +204,10 @@ struct Quad {
   }
 
   Quad(const Vector2 _topLeft, const int _size, const int _depth) {
-		topLeft = _topLeft;
-		size = _size;
-		depth = (_depth > MAX_DEPTH) ? MAX_DEPTH : _depth; // Limit the depth
-	}
+    topLeft = _topLeft;
+    size = _size;
+    depth = (_depth > MAX_DEPTH) ? MAX_DEPTH : _depth;  // Limit the depth
+  }
 
   // Show quad and number of objects inside
   void draw(const int x = -1, const int y = -1) {
@@ -220,22 +222,53 @@ struct Quad {
     }
   }
 
-	// Return whether the quad can COMPLETELY contain the circle's AABB
-	bool canContainCircle(const Circle* circle) {
-		Vector2 quadTopLeft = topLeft;
-		Vector2 quadBottomRight = Vector2AddValue(topLeft, size);
+  // Subdivide quad
+  void makeChildQuad(QuadPosition position) {
+    float halfSize = size / 2;
+    switch (position) {
+      case QuadPosition::topLeft:
+        topLeftChild = new Quad(topLeft, halfSize, depth + 1);
+        break;
 
-		Vector2 circleTopLeft = Vector2SubtractValue(circle->position, circle->radius);
-		Vector2 circleBottomRight = Vector2AddValue(circle->position, circle->radius);
-		
-		return (circleTopLeft.x >= quadTopLeft.x && circleTopLeft.y >= quadTopLeft.y
-			&& circleBottomRight.x <= quadBottomRight.x && circleBottomRight.y >= quadBottomRight.y);
-	}
+      case QuadPosition::topRight:
+        topRightChild =
+          new Quad({topLeft.x + halfSize, topLeft.y}, halfSize, depth + 1);
+        break;
+
+      case QuadPosition::bottomLeft:
+        bottomLeftChild =
+          new Quad({topLeft.x, topLeft.y + halfSize}, halfSize, depth + 1);
+        break;
+
+      case QuadPosition::bottomRight:
+        bottomRightChild =
+          new Quad(Vector2AddValue(topLeft, halfSize), halfSize, depth + 1);
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  // Return whether the quad can COMPLETELY contain the circle's AABB
+  bool canContainCircle(const Circle* circle) {
+    Vector2 quadTopLeft = topLeft;
+    Vector2 quadBottomRight = Vector2AddValue(topLeft, size);
+
+    Vector2 circleTopLeft =
+      Vector2SubtractValue(circle->position, circle->radius);
+    Vector2 circleBottomRight =
+      Vector2AddValue(circle->position, circle->radius);
+
+    return (
+      circleTopLeft.x >= quadTopLeft.x && circleTopLeft.y >= quadTopLeft.y &&
+      circleBottomRight.x <= quadBottomRight.x &&
+      circleBottomRight.y >= quadBottomRight.y
+    );
+  }
 
   // Insert an object into the appropriate quad
-  void insert(Circle* circle) {
-
-	}
+  void insert(Circle* circle) {}
 };
 
 int main() {
@@ -314,12 +347,14 @@ int main() {
     }
 
     // Small Circle Counter
-    numberOfSmallCirclesPresentFormatted =
-      sprintf(smallCircleCountBuffer, "%d Small Circles", numberOfSmallCirclesPresent);
+    numberOfSmallCirclesPresentFormatted = sprintf(
+      smallCircleCountBuffer, "%d Small Circles", numberOfSmallCirclesPresent
+    );
     DrawText(smallCircleCountBuffer, 10, 10, 20, BLACK);
     // Big Circle Counter
-    numberOfBigCirclesPresentFormatted =
-      sprintf(bigCircleCountBuffer, "%d Big Circles", numberOfBigCirclesPresent);
+    numberOfBigCirclesPresentFormatted = sprintf(
+      bigCircleCountBuffer, "%d Big Circles", numberOfBigCirclesPresent
+    );
     DrawText(bigCircleCountBuffer, 10, 30, 20, BLACK);
 
     EndDrawing();
