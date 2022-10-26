@@ -180,6 +180,7 @@ struct Circle {
   }
 };
 
+// https://www.geeksforgeeks.org/quad-tree/
 struct Quad {
   Vector2 topLeft;
   int size;
@@ -219,7 +220,19 @@ struct Quad {
     }
   }
 
-  // Insert an object into the appropriate
+	// Return whether the quad can COMPLETELY contain the circle's AABB
+	bool canContainCircle(const Circle* circle) {
+		Vector2 quadTopLeft = topLeft;
+		Vector2 quadBottomRight = Vector2AddValue(topLeft, size);
+
+		Vector2 circleTopLeft = Vector2SubtractValue(circle->position, circle->radius);
+		Vector2 circleBottomRight = Vector2AddValue(circle->position, circle->radius);
+		
+		return (circleTopLeft.x >= quadTopLeft.x && circleTopLeft.y >= quadTopLeft.y
+			&& circleBottomRight.x <= quadBottomRight.x && circleBottomRight.y >= quadBottomRight.y);
+	}
+
+  // Insert an object into the appropriate quad
   void insert(Circle* circle) {
 
 	}
