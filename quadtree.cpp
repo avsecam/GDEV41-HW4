@@ -181,9 +181,11 @@ struct Circle {
 };
 
 struct Quad {
-  Vector2 topRight;
+  Vector2 topLeft;
   int size;
   int depth;
+
+	Quad* parent;
 
   Quad* topLeftChild;
   Quad* topRightChild;
@@ -193,30 +195,34 @@ struct Quad {
   std::vector<Circle*> objects;
 
   Quad() {
-    topRight = {0, 0};
+    topLeft = {0, 0};
     size = (WINDOW_HEIGHT > WINDOW_WIDTH) ? WINDOW_HEIGHT : WINDOW_WIDTH;
     depth = 1;
   }
 
-  Quad(const Vector2 newTopRight) { topRight = newTopRight; }
+  Quad(const Vector2 _topLeft, const int _size, const int _depth) {
+		topLeft = _topLeft;
+		size = _size;
+		depth = (_depth > MAX_DEPTH) ? MAX_DEPTH : _depth; // Limit the depth
+	}
 
-  // Show grid position if x and y are greater than -1
+  // Show quad and number of objects inside
   void draw(const int x = -1, const int y = -1) {
-    DrawRectangleLines(topRight.x, topRight.y, size, size, RED);
+    DrawRectangleLines(topLeft.x, topLeft.y, size, size, RED);
     if (x >= 0 && y >= 0) {
       char buffer[10];
-      sprintf(buffer, "%d,%d", x, y);
-      DrawText(buffer, topRight.x, topRight.y, 12, BLACK);
 
       sprintf(buffer, "%d", objects.size());
       DrawText(
-        buffer, topRight.x + (size / 2), topRight.y + (size / 2), 15, GREEN
+        buffer, topLeft.x + (size / 2), topLeft.y + (size / 2), 15, GREEN
       );
     }
   }
 
   // Insert an object into the appropriate
-  void insert() {}
+  void insert(Circle* circle) {
+
+	}
 };
 
 int main() {

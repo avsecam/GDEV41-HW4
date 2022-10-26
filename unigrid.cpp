@@ -228,25 +228,25 @@ struct Circle {
 };
 
 struct Cell {
-  Vector2 topRight;
+  Vector2 topLeft;
   int size = GRID_SIZE;
   std::vector<Circle*> objects;
 
   Cell() {}
 
-  Cell(const Vector2 newTopRight) { topRight = newTopRight; }
+  Cell(const Vector2 _topLeft) { topLeft = _topLeft; }
 
   // Show grid position if x and y are greater than -1
   void draw(const int x = -1, const int y = -1) {
-    DrawRectangleLines(topRight.x, topRight.y, GRID_SIZE, GRID_SIZE, RED);
+    DrawRectangleLines(topLeft.x, topLeft.y, GRID_SIZE, GRID_SIZE, RED);
     if (x >= 0 && y >= 0) {
       char buffer[10];
       sprintf(buffer, "%d,%d", x, y);
-      DrawText(buffer, topRight.x, topRight.y, 12, BLACK);
+      DrawText(buffer, topLeft.x, topLeft.y, 12, BLACK);
 
       sprintf(buffer, "%d", objects.size());
       DrawText(
-        buffer, topRight.x + (GRID_SIZE / 2), topRight.y + (GRID_SIZE / 2), 15,
+        buffer, topLeft.x + (GRID_SIZE / 2), topLeft.y + (GRID_SIZE / 2), 15,
         GREEN
       );
     }
