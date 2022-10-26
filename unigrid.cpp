@@ -379,6 +379,7 @@ int main() {
 						bool shouldHandleCircleCollision(true);
             std::vector<Circle*> objects = uniformGrid.cells[i][j].objects;
             if (objects.empty()) continue;
+						
 						// If there are less than 2 objects, don't handle Circle collision
 						if (objects.size() < 2) shouldHandleCircleCollision = false;
             for (size_t i = 0; i < objects.size(); i++) {

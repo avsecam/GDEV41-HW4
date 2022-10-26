@@ -34,7 +34,7 @@ const float FRICTION(-0.75f);
 const float VELOCITY_THRESHOLD(5.0f);
 const float ELASTICITY(0.5f);
 
-enum QuadPosition { topLeft, topRight, bottomLeft, bottomRight };
+enum QuadPosition { none = -1, topLeft = 0, topRight = 1, bottomLeft = 2, bottomRight = 3 };
 
 const int MAX_DEPTH(5);
 
@@ -223,26 +223,30 @@ struct Quad {
   }
 
   // Subdivide quad
-  void makeChildQuad(QuadPosition position) {
+  Quad* makeChildQuad(QuadPosition position) {
     float halfSize = size / 2;
     switch (position) {
       case QuadPosition::topLeft:
         topLeftChild = new Quad(topLeft, halfSize, depth + 1);
+				return topLeftChild;
         break;
 
       case QuadPosition::topRight:
         topRightChild =
           new Quad({topLeft.x + halfSize, topLeft.y}, halfSize, depth + 1);
+				return topRightChild;
         break;
 
       case QuadPosition::bottomLeft:
         bottomLeftChild =
           new Quad({topLeft.x, topLeft.y + halfSize}, halfSize, depth + 1);
+				return bottomLeftChild;
         break;
 
       case QuadPosition::bottomRight:
         bottomRightChild =
           new Quad(Vector2AddValue(topLeft, halfSize), halfSize, depth + 1);
+				return bottomRightChild;
         break;
 
       default:
@@ -267,8 +271,59 @@ struct Quad {
     );
   }
 
+	// Check if the circle can be contained in the quad's children
+	// If it can, create a quad that contains the circle
+	QuadPosition childCanContainCircle(const Circle* circle) {
+    float halfSize = size / 2;
+		Quad* tempQuad;
+
+		// Top left
+		tempQuad = new Quad(topLeft, halfSize, depth + 1);
+		if (tempQuad->canContainCircle(circle)) return QuadPosition::topLeft;
+
+		// Top right
+		tempQuad->topLeft = { tempQuad->topLeft.x + halfSize, tempQuad->topLeft.y };
+		if (tempQuad->canContainCircle(circle)) return QuadPosition::topRight;
+		
+		// Bottom left
+		tempQuad->topLeft = { tempQuad->topLeft.x - halfSize, tempQuad->topLeft.y + halfSize};
+		if (tempQuad->canContainCircle(circle)) return QuadPosition::bottomLeft;
+		
+		// Bottom right
+		tempQuad->topLeft = { tempQuad->topLeft.x + halfSize, tempQuad->topLeft.y };
+		if (tempQuad->canContainCircle(circle)) return QuadPosition::bottomRight;
+
+		return QuadPosition::none;
+	}
+
   // Insert an object into the appropriate quad
-  void insert(Circle* circle) {}
+  void insert(Circle* circle) {
+		// Leaf check
+		if (depth >= MAX_DEPTH) {
+			objects.push_back(circle);
+			return;
+		}
+		
+		// Check child nodes if one of them can contain the circle completely
+		QuadPosition childPositionThatContainsCircle = childCanContainCircle(circle);
+
+		// If no child can completely contain the circle
+		if (childPositionThatContainsCircle == QuadPosition::none) {
+			objects.push_back(circle);
+			return;
+		} else {
+			Quad* childThatContainsCircle = makeChildQuad(childPositionThatContainsCircle);
+			childThatContainsCircle->insert(circle);
+		}
+	}
+
+	// Recursively clear all quads of objects
+	void clear() {
+		if (topLeftChild) topLeftChild->clear();
+		if (topRightChild) topRightChild->clear();
+		if (bottomLeftChild) bottomLeftChild->clear();
+		if (bottomRightChild) bottomRightChild->clear();
+	}
 };
 
 int main() {
@@ -326,11 +381,10 @@ int main() {
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
         for (size_t i = 0; i < circles.size(); i++) {
-          Circle* currentCircle = circles[i];
-          currentCircle->update();
-          currentCircle->handleCircleCollision(circles);
-          currentCircle->handleEdgeCollision();
+          circles[i]->update();
         }
+
+
         accumulator -= TIMESTEP;
       }
     }
@@ -340,6 +394,7 @@ int main() {
     ClearBackground(WHITE);
 
     if (showTree) {
+
     }
 
     for (size_t i = 0; i < circles.size(); i++) {
