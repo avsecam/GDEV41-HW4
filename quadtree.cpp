@@ -195,7 +195,7 @@ struct Quad {
   int halfWidth;
   int depth;
 
-  Quad* parent;
+  Quad* parent; // Not used as of the moment
 
   Quad* topLeftChild = nullptr;
   Quad* topRightChild = nullptr;
@@ -234,46 +234,47 @@ struct Quad {
   }
 
   // Subdivide quad
+	// If child quad already exists, return that instead of creating a new one
   Quad* makeChildQuad(QuadPosition position) {
     float halfOfHalfWidth = halfWidth / 2;
     switch (position) {
       case QuadPosition::topLeft:
-				if (!topLeftChild) {
-					topLeftChild = new Quad(
-						{center.x - halfOfHalfWidth, center.y - halfOfHalfWidth},
-						halfOfHalfWidth, depth + 1
-					);
-				}
+        if (!topLeftChild) {
+          topLeftChild = new Quad(
+            {center.x - halfOfHalfWidth, center.y - halfOfHalfWidth},
+            halfOfHalfWidth, depth + 1
+          );
+        }
         return topLeftChild;
         break;
 
       case QuadPosition::topRight:
-				if (!topRightChild) {
-					topRightChild = new Quad(
-						{center.x + halfOfHalfWidth, center.y - halfOfHalfWidth},
-						halfOfHalfWidth, depth + 1
-					);
-				}
+        if (!topRightChild) {
+          topRightChild = new Quad(
+            {center.x + halfOfHalfWidth, center.y - halfOfHalfWidth},
+            halfOfHalfWidth, depth + 1
+          );
+        }
         return topRightChild;
         break;
 
       case QuadPosition::bottomLeft:
-				if (!bottomLeftChild) {
-					bottomLeftChild = new Quad(
-						{center.x - halfOfHalfWidth, center.y + halfOfHalfWidth},
-						halfOfHalfWidth, depth + 1
-					);
-				}
+        if (!bottomLeftChild) {
+          bottomLeftChild = new Quad(
+            {center.x - halfOfHalfWidth, center.y + halfOfHalfWidth},
+            halfOfHalfWidth, depth + 1
+          );
+        }
         return bottomLeftChild;
         break;
 
       case QuadPosition::bottomRight:
-				if (!bottomRightChild) {
-					bottomRightChild = new Quad(
-						{center.x + halfOfHalfWidth, center.y + halfOfHalfWidth},
-						halfOfHalfWidth, depth + 1
-					);
-				}
+        if (!bottomRightChild) {
+          bottomRightChild = new Quad(
+            {center.x + halfOfHalfWidth, center.y + halfOfHalfWidth},
+            halfOfHalfWidth, depth + 1
+          );
+        }
         return bottomRightChild;
         break;
 
@@ -352,22 +353,22 @@ struct Quad {
       // Create a quad depending on which position can contain the circle
       Quad* childThatContainsCircle =
         makeChildQuad(childPositionThatContainsCircle);
-			
+
       switch (childPositionThatContainsCircle) {
         case QuadPosition::topLeft:
-					topLeftChild = childThatContainsCircle;
+          topLeftChild = childThatContainsCircle;
           break;
 
         case QuadPosition::topRight:
-					topRightChild = childThatContainsCircle;
+          topRightChild = childThatContainsCircle;
           break;
 
         case QuadPosition::bottomLeft:
-					bottomLeftChild = childThatContainsCircle;
+          bottomLeftChild = childThatContainsCircle;
           break;
 
         case QuadPosition::bottomRight:
-					bottomRightChild = childThatContainsCircle;
+          bottomRightChild = childThatContainsCircle;
           break;
 
         default:
@@ -413,7 +414,7 @@ struct Quad {
   void update() {
     if (objects.size() > 1) {
       for (size_t i = 0; i < objects.size(); i++) {
-        objects[i]->handleCircleCollision(objects);
+        objects[i]->handleCircleCollision(objects, i);
       }
     }
 
@@ -534,6 +535,10 @@ int main() {
 
     EndDrawing();
   }
+
+	for (size_t i = 0; i < circles.size(); i++) {
+		delete circles[i];
+	}
 
   return 0;
 }
