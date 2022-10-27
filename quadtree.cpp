@@ -21,7 +21,7 @@ enum CircleSize { small = 0, big = 1 };
 const float CIRCLE_VELOCITY_MIN(5.0f);
 const float CIRCLE_VELOCITY_MAX(400.0f);
 
-const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(1);
+const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
 const int SMALL_CIRCLE_RADIUS_MAX(10);
 const int SMALL_CIRCLE_MASS(1);
@@ -69,6 +69,7 @@ struct Circle {
   Vector2 acceleration;
   Vector2 velocity;
   Vector2 position;
+  Vector2 oldPosition;
 
   Circle() {}
 
@@ -108,6 +109,7 @@ struct Circle {
     velocity = Vector2Add(velocity, Vector2Scale(acceleration, TIMESTEP));
     velocity.x = (abs(velocity.x) < VELOCITY_THRESHOLD) ? 0.0f : velocity.x;
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
+    oldPosition = position;
     position = Vector2Add(position, Vector2Scale(velocity, TIMESTEP));
   }
 
@@ -168,9 +170,11 @@ struct Circle {
     bool circleIsOutOfBoundsY =
       position.y >= (screenHeight - radius) || position.y <= radius;
     if (circleIsOutOfBoundsX) {
+      position = oldPosition;
       velocity.x *= -1.0f;
     }
     if (circleIsOutOfBoundsY) {
+      position = oldPosition;
       velocity.y *= -1.0f;
     }
   }
@@ -195,7 +199,7 @@ struct Quad {
   int halfWidth;
   int depth;
 
-  Quad* parent; // Not used as of the moment
+  Quad* parent;  // Not used as of the moment
 
   Quad* topLeftChild = nullptr;
   Quad* topRightChild = nullptr;
@@ -219,6 +223,7 @@ struct Quad {
 
   // Show quad and number of objects inside
   void draw(const int x = -1, const int y = -1) {
+    if (objects.empty()) return;
     Vector2 topLeft = Vector2SubtractValue(center, halfWidth);
     DrawRectangleLines(topLeft.x, topLeft.y, halfWidth * 2, halfWidth * 2, RED);
     if (x >= 0 && y >= 0) {
@@ -234,7 +239,7 @@ struct Quad {
   }
 
   // Subdivide quad
-	// If child quad already exists, return that instead of creating a new one
+  // If child quad already exists, return that instead of creating a new one
   Quad* makeChildQuad(QuadPosition position) {
     float halfOfHalfWidth = halfWidth / 2;
     switch (position) {
@@ -381,32 +386,22 @@ struct Quad {
 
   // Recursively free all quads of objects
   void clear() {
+		objects.clear();
     if (!topLeftChild && !topRightChild && !bottomLeftChild && !bottomRightChild) {
-      if (!objects.empty()) {
-        objects.clear();
-      }
       return;
     }
 
     if (topLeftChild) {
       topLeftChild->clear();
-      delete topLeftChild;
-      topLeftChild = nullptr;
     }
     if (topRightChild) {
       topRightChild->clear();
-      delete topRightChild;
-      topRightChild = nullptr;
     }
     if (bottomLeftChild) {
       bottomLeftChild->clear();
-      delete bottomLeftChild;
-      bottomLeftChild = nullptr;
     }
     if (bottomRightChild) {
       bottomRightChild->clear();
-      delete bottomRightChild;
-      bottomRightChild = nullptr;
     }
   }
 
@@ -536,9 +531,9 @@ int main() {
     EndDrawing();
   }
 
-	for (size_t i = 0; i < circles.size(); i++) {
-		delete circles[i];
-	}
+  for (size_t i = 0; i < circles.size(); i++) {
+    delete circles[i];
+  }
 
   return 0;
 }

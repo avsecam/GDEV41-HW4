@@ -100,9 +100,7 @@ struct Circle {
   void update(
     const Vector2 force = {0.0f, 0.0f}, const float timestep = TIMESTEP
   ) {
-    acceleration = Vector2Add(
-      Vector2Scale(force, 1 / mass), (Vector2Scale(velocity, FRICTION))
-    );
+    acceleration = Vector2Scale(force, 1 / mass);  // No friction
     velocity = Vector2Add(velocity, Vector2Scale(acceleration, TIMESTEP));
     velocity.x = (abs(velocity.x) < VELOCITY_THRESHOLD) ? 0.0f : velocity.x;
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
