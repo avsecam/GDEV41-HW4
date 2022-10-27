@@ -19,9 +19,9 @@ const KeyboardKey DETAILS_KEY(KEY_Q);
 enum CircleSize { small = 0, big = 1 };
 
 const float CIRCLE_VELOCITY_MIN(5.0f);
-const float CIRCLE_VELOCITY_MAX(100.0f);
+const float CIRCLE_VELOCITY_MAX(300.0f);
 
-const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
+const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(1);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
 const int SMALL_CIRCLE_RADIUS_MAX(10);
 const int SMALL_CIRCLE_MASS(1);
@@ -32,7 +32,7 @@ const int BIG_CIRCLE_MASS(10);
 
 const float FRICTION(-0.75f);
 const float VELOCITY_THRESHOLD(5.0f);
-const float ELASTICITY(0.5f);
+const float ELASTICITY(1.0f);
 
 enum QuadPosition {
   none = -1,
@@ -43,6 +43,9 @@ enum QuadPosition {
 };
 
 const int MAX_DEPTH(5);
+
+struct Circle;
+struct Quad;
 
 // https://cplusplus.com/forum/beginner/81180/
 // Returns a random float within min and max
@@ -70,6 +73,8 @@ struct Circle {
   Vector2 velocity;
   Vector2 position;
   Vector2 oldPosition;
+
+  Quad* quad = nullptr;
 
   Circle() {}
 
@@ -111,19 +116,16 @@ struct Circle {
     velocity.y = (abs(velocity.y) < VELOCITY_THRESHOLD) ? 0.0f : velocity.y;
     oldPosition = position;
     position = Vector2Add(position, Vector2Scale(velocity, TIMESTEP));
+
+    quad = nullptr;
   }
 
-  // If idx is -1, double-checking collision will happen
-  void handleCircleCollision(
-    const std::vector<Circle*> circles, const size_t idx = -1
-  ) {
-    // Choose if the loop should start at 0 or at idx
-    size_t iterator = (idx == -1) ? 0 : idx;
-    for (size_t i = iterator; i < circles.size(); i++) {
+  void handleCircleCollision(const std::vector<Circle*> circles) {
+    for (size_t i = 0; i < circles.size(); i++) {
       Circle* a = this;
       Circle b = *circles[i];
 
-      // if (a == &b) continue;
+      if (a == &b) continue;
 
       float sumOfRadii(pow(a->radius + b.radius, 2));
       float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
@@ -245,12 +247,49 @@ struct Quad {
   bool branchContainsObjects() {
     if (depth >= MAX_DEPTH) return !objects.empty();
 
-		if (!objects.empty()) return true;
+    if (!objects.empty()) return true;
 
-    return topLeftChild->branchContainsObjects()
-			|| topRightChild->branchContainsObjects()
-			|| bottomLeftChild->branchContainsObjects()
-			|| bottomRightChild->branchContainsObjects();
+    return topLeftChild->branchContainsObjects() ||
+           topRightChild->branchContainsObjects() ||
+           bottomLeftChild->branchContainsObjects() ||
+           bottomRightChild->branchContainsObjects();
+  }
+
+  std::vector<Circle*> getAllObjectsWithinBranch() {
+    std::vector<Circle*> circles;
+    if (depth >= MAX_DEPTH) {
+      for (size_t i = 0; i < objects.size(); i++) {
+        circles.push_back(objects[i]);
+      }
+      return circles;
+    }
+
+    std::vector<Circle*> topLeftChildCircles =
+      topLeftChild->getAllObjectsWithinBranch();
+    for (size_t i = 0; i < topLeftChildCircles.size(); i++) {
+      circles.push_back(topLeftChildCircles[i]);
+    }
+    std::vector<Circle*> topRightChildCircles =
+      topRightChild->getAllObjectsWithinBranch();
+    for (size_t i = 0; i < topRightChildCircles.size(); i++) {
+      circles.push_back(topRightChildCircles[i]);
+    }
+    std::vector<Circle*> bottomLeftChildCircles =
+      bottomLeftChild->getAllObjectsWithinBranch();
+    for (size_t i = 0; i < bottomLeftChildCircles.size(); i++) {
+      circles.push_back(bottomLeftChildCircles[i]);
+    }
+    std::vector<Circle*> bottomRightChildCircles =
+      bottomRightChild->getAllObjectsWithinBranch();
+    for (size_t i = 0; i < bottomRightChildCircles.size(); i++) {
+      circles.push_back(bottomRightChildCircles[i]);
+    }
+
+    for (size_t i = 0; i < objects.size(); i++) {
+      circles.push_back(objects[i]);
+    }
+
+    return circles;
   }
 
   // Subdivide quad
@@ -323,6 +362,7 @@ struct Quad {
     // Leaf check
     if (depth >= MAX_DEPTH) {
       objects.push_back(circle);
+      circle->quad = this;
       return;
     }
 
@@ -333,6 +373,7 @@ struct Quad {
     // If no child can completely contain the circle
     if (childPositionThatContainsCircle == QuadPosition::none) {
       objects.push_back(circle);
+      circle->quad = this;
       return;
     } else {
       // Pick quad which contains circle
@@ -382,14 +423,16 @@ struct Quad {
 
   // Do physics recursively
   void update() {
-    if (objects.size() > 1) {
-      for (size_t i = 0; i < objects.size(); i++) {
-        objects[i]->handleCircleCollision(objects, i);
-      }
-    }
-
     if (!objects.empty()) {
+      std::vector<Circle*> objectsForCollisionCheck;
       for (size_t i = 0; i < objects.size(); i++) {
+        // Check collision for objects that are in child quads of the circle's
+        // current quad
+        objectsForCollisionCheck =
+          objects[i]->quad->getAllObjectsWithinBranch();
+				if (objects[i]->radius == BIG_CIRCLE_RADIUS) printf("%d\n", objectsForCollisionCheck.size());
+        objects[i]->handleCircleCollision(objectsForCollisionCheck);
+
         objects[i]->handleEdgeCollision();
       }
     }
