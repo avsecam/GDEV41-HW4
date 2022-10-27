@@ -19,7 +19,7 @@ const KeyboardKey DETAILS_KEY(KEY_Q);
 enum CircleSize { small = 0, big = 1 };
 
 const float CIRCLE_VELOCITY_MIN(5.0f);
-const float CIRCLE_VELOCITY_MAX(400.0f);
+const float CIRCLE_VELOCITY_MAX(100.0f);
 
 const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
@@ -213,23 +213,25 @@ struct Quad {
     halfWidth =
       (WINDOW_HEIGHT > WINDOW_WIDTH) ? WINDOW_HEIGHT / 2 : WINDOW_WIDTH / 2;
     depth = 1;
+
+    subdivide();
   }
 
   Quad(const Vector2 _center, const int _halfWidth, const int _depth) {
     center = _center;
     halfWidth = _halfWidth;
     depth = (_depth > MAX_DEPTH) ? MAX_DEPTH : _depth;  // Limit the depth
+
+    if (depth < MAX_DEPTH) subdivide();
   }
 
   // Show quad and number of objects inside
-  void draw(const int x = -1, const int y = -1) {
-    if (objects.empty()) return;
-    Vector2 topLeft = Vector2SubtractValue(center, halfWidth);
-    DrawRectangleLines(topLeft.x, topLeft.y, halfWidth * 2, halfWidth * 2, RED);
-    if (x >= 0 && y >= 0) {
-      char buffer[10];
-      sprintf(buffer, "%d", objects.size());
-      DrawText(buffer, center.x, center.y, 15, GREEN);
+  void draw() {
+    if (branchContainsObjects()) {
+      Vector2 topLeft = Vector2SubtractValue(center, halfWidth);
+      DrawRectangleLines(
+        topLeft.x, topLeft.y, halfWidth * 2, halfWidth * 2, RED
+      );
     }
 
     if (topLeftChild) topLeftChild->draw();
@@ -238,55 +240,41 @@ struct Quad {
     if (bottomRightChild) bottomRightChild->draw();
   }
 
+  // Return true if any of the children, grandchildren, etc. contains at least
+  // one circle
+  bool branchContainsObjects() {
+    if (depth >= MAX_DEPTH) return !objects.empty();
+
+		if (!objects.empty()) return true;
+
+    return topLeftChild->branchContainsObjects()
+			|| topRightChild->branchContainsObjects()
+			|| bottomLeftChild->branchContainsObjects()
+			|| bottomRightChild->branchContainsObjects();
+  }
+
   // Subdivide quad
-  // If child quad already exists, return that instead of creating a new one
-  Quad* makeChildQuad(QuadPosition position) {
+  void subdivide() {
     float halfOfHalfWidth = halfWidth / 2;
-    switch (position) {
-      case QuadPosition::topLeft:
-        if (!topLeftChild) {
-          topLeftChild = new Quad(
-            {center.x - halfOfHalfWidth, center.y - halfOfHalfWidth},
-            halfOfHalfWidth, depth + 1
-          );
-        }
-        return topLeftChild;
-        break;
+    topLeftChild = new Quad(
+      {center.x - halfOfHalfWidth, center.y - halfOfHalfWidth}, halfOfHalfWidth,
+      depth + 1
+    );
 
-      case QuadPosition::topRight:
-        if (!topRightChild) {
-          topRightChild = new Quad(
-            {center.x + halfOfHalfWidth, center.y - halfOfHalfWidth},
-            halfOfHalfWidth, depth + 1
-          );
-        }
-        return topRightChild;
-        break;
+    topRightChild = new Quad(
+      {center.x + halfOfHalfWidth, center.y - halfOfHalfWidth}, halfOfHalfWidth,
+      depth + 1
+    );
 
-      case QuadPosition::bottomLeft:
-        if (!bottomLeftChild) {
-          bottomLeftChild = new Quad(
-            {center.x - halfOfHalfWidth, center.y + halfOfHalfWidth},
-            halfOfHalfWidth, depth + 1
-          );
-        }
-        return bottomLeftChild;
-        break;
+    bottomLeftChild = new Quad(
+      {center.x - halfOfHalfWidth, center.y + halfOfHalfWidth}, halfOfHalfWidth,
+      depth + 1
+    );
 
-      case QuadPosition::bottomRight:
-        if (!bottomRightChild) {
-          bottomRightChild = new Quad(
-            {center.x + halfOfHalfWidth, center.y + halfOfHalfWidth},
-            halfOfHalfWidth, depth + 1
-          );
-        }
-        return bottomRightChild;
-        break;
-
-      default:
-        break;
-    }
-    return nullptr;
+    bottomRightChild = new Quad(
+      {center.x + halfOfHalfWidth, center.y + halfOfHalfWidth}, halfOfHalfWidth,
+      depth + 1
+    );
   }
 
   // Return whether the quad can COMPLETELY contain the circle's AABB
@@ -309,32 +297,24 @@ struct Quad {
   // Check if the circle can be contained in the quad's children
   // If it can, create a quad that contains the circle
   QuadPosition positionThatCanContainCircle(const Circle* circle) {
-    Quad* tempQuad;
-    float halfOfHalfWidth = halfWidth / 2;
     QuadPosition position = QuadPosition::none;
 
     // Top left
-    tempQuad = new Quad(
-      {center.x - halfOfHalfWidth, center.y - halfOfHalfWidth}, halfOfHalfWidth,
-      depth + 1
-    );
-    if (tempQuad->canContainCircle(circle)) position = QuadPosition::topLeft;
+    if (topLeftChild->canContainCircle(circle))
+      position = QuadPosition::topLeft;
 
     // Top right
-    tempQuad->center = {tempQuad->center.x + halfWidth, tempQuad->center.y};
-    if (tempQuad->canContainCircle(circle)) position = QuadPosition::topRight;
+    if (topRightChild->canContainCircle(circle))
+      position = QuadPosition::topRight;
 
     // Bottom left
-    tempQuad->center = {
-      tempQuad->center.x - halfWidth, tempQuad->center.y + halfWidth};
-    if (tempQuad->canContainCircle(circle)) position = QuadPosition::bottomLeft;
+    if (bottomLeftChild->canContainCircle(circle))
+      position = QuadPosition::bottomLeft;
 
     // Bottom right
-    tempQuad->center = {tempQuad->center.x + halfWidth, tempQuad->center.y};
-    if (tempQuad->canContainCircle(circle))
+    if (bottomRightChild->canContainCircle(circle))
       position = QuadPosition::bottomRight;
 
-    delete tempQuad;
     return position;
   }
 
@@ -355,39 +335,34 @@ struct Quad {
       objects.push_back(circle);
       return;
     } else {
-      // Create a quad depending on which position can contain the circle
-      Quad* childThatContainsCircle =
-        makeChildQuad(childPositionThatContainsCircle);
-
+      // Pick quad which contains circle
       switch (childPositionThatContainsCircle) {
         case QuadPosition::topLeft:
-          topLeftChild = childThatContainsCircle;
+          topLeftChild->insert(circle);
           break;
 
         case QuadPosition::topRight:
-          topRightChild = childThatContainsCircle;
+          topRightChild->insert(circle);
           break;
 
         case QuadPosition::bottomLeft:
-          bottomLeftChild = childThatContainsCircle;
+          bottomLeftChild->insert(circle);
           break;
 
         case QuadPosition::bottomRight:
-          bottomRightChild = childThatContainsCircle;
+          bottomRightChild->insert(circle);
           break;
 
         default:
           break;
       }
-
-      childThatContainsCircle->insert(circle);
     }
   }
 
   // Recursively free all quads of objects
   void clear() {
-		objects.clear();
-    if (!topLeftChild && !topRightChild && !bottomLeftChild && !bottomRightChild) {
+    objects.clear();
+    if (depth >= MAX_DEPTH) {
       return;
     }
 
@@ -419,7 +394,7 @@ struct Quad {
       }
     }
 
-    if (!topLeftChild && !topRightChild && !bottomLeftChild && !bottomRightChild) {
+    if (depth >= MAX_DEPTH) {
       return;
     }
 
