@@ -21,7 +21,7 @@ enum CircleSize { small = 0, big = 1 };
 const float CIRCLE_VELOCITY_MIN(5.0f);
 const float CIRCLE_VELOCITY_MAX(300.0f);
 
-const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(1);
+const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
 const int SMALL_CIRCLE_RADIUS_MAX(10);
 const int SMALL_CIRCLE_MASS(1);
@@ -123,39 +123,42 @@ struct Circle {
   void handleCircleCollision(const std::vector<Circle*> circles) {
     for (size_t i = 0; i < circles.size(); i++) {
       Circle* a = this;
-      Circle b = *circles[i];
+      Circle* b = circles[i];
 
-      if (a == &b) continue;
+      if (a == b) continue;
 
-      float sumOfRadii(pow(a->radius + b.radius, 2));
-      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
+      float sumOfRadii(pow(a->radius + b->radius, 2));
+      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b->position));
 
       // Collision detected
       if (sumOfRadii >= distanceBetweenCenters) {
         Vector2 collisionNormalAB(
-          {b.position.x - a->position.x, b.position.y - a->position.y}
+          {b->position.x - a->position.x, b->position.y - a->position.y}
         );
-        Vector2 relativeVelocityAB(Vector2Subtract(a->velocity, b.velocity));
+        Vector2 relativeVelocityAB(Vector2Subtract(a->velocity, b->velocity));
         Vector2 collisionNormalABNormalized(Vector2Normalize(collisionNormalAB)
         );
         Vector2 relativeVelocityABNormalized(Vector2Normalize(relativeVelocityAB
         ));
 
+				// a->position = a->oldPosition;
+				// b->position = b->oldPosition;
+
         // Collision response
         // Check dot product between collision normal and relative velocity
         if (Vector2DotProduct(relativeVelocityABNormalized, collisionNormalABNormalized) > 0) {
           float impulse =
-            Circle::getImpulse(*a, b, relativeVelocityAB, collisionNormalAB);
+            Circle::getImpulse(*a, *b, relativeVelocityAB, collisionNormalAB);
           a->velocity = Vector2Add(
             a->velocity,
             Vector2Scale(
               Vector2Scale(collisionNormalAB, 1.0f / a->mass), impulse
             )
           );
-          b.velocity = Vector2Subtract(
-            b.velocity,
+          b->velocity = Vector2Subtract(
+            b->velocity,
             Vector2Scale(
-              Vector2Scale(collisionNormalAB, 1.0f / b.mass), impulse
+              Vector2Scale(collisionNormalAB, 1.0f / b->mass), impulse
             )
           );
         }
@@ -335,7 +338,7 @@ struct Quad {
 
   // Check if the circle can be contained in the quad's children
   // If it can, create a quad that contains the circle
-  QuadPosition positionThatCanContainCircle(const Circle* circle) {
+  QuadPosition getPositionThatCanContainCircle(const Circle* circle) {
     QuadPosition position = QuadPosition::none;
 
     // Top left
@@ -368,7 +371,7 @@ struct Quad {
 
     // Check child nodes if one of them can contain the circle completely
     QuadPosition childPositionThatContainsCircle =
-      positionThatCanContainCircle(circle);
+      getPositionThatCanContainCircle(circle);
 
     // If no child can completely contain the circle
     if (childPositionThatContainsCircle == QuadPosition::none) {
@@ -425,14 +428,17 @@ struct Quad {
   void update() {
     if (!objects.empty()) {
       std::vector<Circle*> objectsForCollisionCheck;
+			if (!objects.empty()) {
+				for (size_t i = 0; i < objects.size(); i++) {
+					// Check collision for objects that are in child quads of the circle's
+					// current quad
+					objectsForCollisionCheck =
+						objects[i]->quad->getAllObjectsWithinBranch();
+					objects[i]->handleCircleCollision(objectsForCollisionCheck;
+				}
+			}
+			
       for (size_t i = 0; i < objects.size(); i++) {
-        // Check collision for objects that are in child quads of the circle's
-        // current quad
-        objectsForCollisionCheck =
-          objects[i]->quad->getAllObjectsWithinBranch();
-				if (objects[i]->radius == BIG_CIRCLE_RADIUS) printf("%d\n", objectsForCollisionCheck.size());
-        objects[i]->handleCircleCollision(objectsForCollisionCheck);
-
         objects[i]->handleEdgeCollision();
       }
     }

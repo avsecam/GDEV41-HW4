@@ -116,19 +116,19 @@ struct Circle {
     size_t iterator = (idx == -1) ? 0 : idx;
     for (size_t i = iterator; i < circles.size(); i++) {
       Circle* a = this;
-      Circle b = *circles[i];
+      Circle* b = circles[i];
 
-      // if (a == &b) continue;
+      if (a == b) continue;
 
-      float sumOfRadii(pow(a->radius + b.radius, 2));
-      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b.position));
+      float sumOfRadii(pow(a->radius + b->radius, 2));
+      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b->position));
 
       // Collision detected
       if (sumOfRadii >= distanceBetweenCenters) {
         Vector2 collisionNormalAB(
-          {b.position.x - a->position.x, b.position.y - a->position.y}
+          {b->position.x - a->position.x, b->position.y - a->position.y}
         );
-        Vector2 relativeVelocityAB(Vector2Subtract(a->velocity, b.velocity));
+        Vector2 relativeVelocityAB(Vector2Subtract(a->velocity, b->velocity));
         Vector2 collisionNormalABNormalized(Vector2Normalize(collisionNormalAB)
         );
         Vector2 relativeVelocityABNormalized(Vector2Normalize(relativeVelocityAB
@@ -138,17 +138,17 @@ struct Circle {
         // Check dot product between collision normal and relative velocity
         if (Vector2DotProduct(relativeVelocityABNormalized, collisionNormalABNormalized) > 0) {
           float impulse =
-            Circle::getImpulse(*a, b, relativeVelocityAB, collisionNormalAB);
+            Circle::getImpulse(*a, *b, relativeVelocityAB, collisionNormalAB);
           a->velocity = Vector2Add(
             a->velocity,
             Vector2Scale(
               Vector2Scale(collisionNormalAB, 1.0f / a->mass), impulse
             )
           );
-          b.velocity = Vector2Subtract(
-            b.velocity,
+          b->velocity = Vector2Subtract(
+            b->velocity,
             Vector2Scale(
-              Vector2Scale(collisionNormalAB, 1.0f / b.mass), impulse
+              Vector2Scale(collisionNormalAB, 1.0f / b->mass), impulse
             )
           );
         }
