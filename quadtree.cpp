@@ -128,7 +128,8 @@ struct Circle {
       if (a == b) continue;
 
       float sumOfRadii(pow(a->radius + b->radius, 2));
-      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b->position));
+      float distanceBetweenCenters(Vector2DistanceSqr(a->position, b->position)
+      );
 
       // Collision detected
       if (sumOfRadii >= distanceBetweenCenters) {
@@ -140,9 +141,6 @@ struct Circle {
         );
         Vector2 relativeVelocityABNormalized(Vector2Normalize(relativeVelocityAB
         ));
-
-				// a->position = a->oldPosition;
-				// b->position = b->oldPosition;
 
         // Collision response
         // Check dot product between collision normal and relative velocity
@@ -428,17 +426,13 @@ struct Quad {
   void update() {
     if (!objects.empty()) {
       std::vector<Circle*> objectsForCollisionCheck;
-			if (!objects.empty()) {
-				for (size_t i = 0; i < objects.size(); i++) {
-					// Check collision for objects that are in child quads of the circle's
-					// current quad
-					objectsForCollisionCheck =
-						objects[i]->quad->getAllObjectsWithinBranch();
-					objects[i]->handleCircleCollision(objectsForCollisionCheck;
-				}
-			}
-			
       for (size_t i = 0; i < objects.size(); i++) {
+        // Check collision for objects that are in child quads of the circle's
+        // current quad
+        objectsForCollisionCheck =
+          objects[i]->quad->getAllObjectsWithinBranch();
+        objects[i]->handleCircleCollision(objectsForCollisionCheck);
+
         objects[i]->handleEdgeCollision();
       }
     }
