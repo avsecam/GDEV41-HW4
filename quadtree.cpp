@@ -42,7 +42,7 @@ enum QuadPosition {
   bottomRight = 3
 };
 
-const int MAX_DEPTH(5);
+const int MAX_DEPTH(4);
 
 struct Circle;
 struct Quad;
@@ -256,8 +256,11 @@ struct Quad {
            bottomRightChild->branchContainsObjects();
   }
 
-  std::vector<Circle*> getAllObjectsWithinBranch() {
+  // Return circles that are near this circle
+  std::vector<Circle*> getObjectsForCollisionCheck(const Circle* circle) {
     std::vector<Circle*> circles;
+		if (!isOverlapping(circle, this)) return circles;
+
     if (depth >= MAX_DEPTH) {
       for (size_t i = 0; i < objects.size(); i++) {
         circles.push_back(objects[i]);
@@ -265,25 +268,33 @@ struct Quad {
       return circles;
     }
 
-    std::vector<Circle*> topLeftChildCircles =
-      topLeftChild->getAllObjectsWithinBranch();
-    for (size_t i = 0; i < topLeftChildCircles.size(); i++) {
-      circles.push_back(topLeftChildCircles[i]);
+    if (isOverlapping(circle, topLeftChild)) {
+      std::vector<Circle*> topLeftChildCircles =
+        topLeftChild->getObjectsForCollisionCheck(circle);
+      for (size_t i = 0; i < topLeftChildCircles.size(); i++) {
+        circles.push_back(topLeftChildCircles[i]);
+      }
     }
-    std::vector<Circle*> topRightChildCircles =
-      topRightChild->getAllObjectsWithinBranch();
-    for (size_t i = 0; i < topRightChildCircles.size(); i++) {
-      circles.push_back(topRightChildCircles[i]);
+    if (isOverlapping(circle, topRightChild)) {
+      std::vector<Circle*> topRightChildCircles =
+        topRightChild->getObjectsForCollisionCheck(circle);
+      for (size_t i = 0; i < topRightChildCircles.size(); i++) {
+        circles.push_back(topRightChildCircles[i]);
+      }
     }
-    std::vector<Circle*> bottomLeftChildCircles =
-      bottomLeftChild->getAllObjectsWithinBranch();
-    for (size_t i = 0; i < bottomLeftChildCircles.size(); i++) {
-      circles.push_back(bottomLeftChildCircles[i]);
+    if (isOverlapping(circle, bottomLeftChild)) {
+      std::vector<Circle*> bottomLeftChildCircles =
+        bottomLeftChild->getObjectsForCollisionCheck(circle);
+      for (size_t i = 0; i < bottomLeftChildCircles.size(); i++) {
+        circles.push_back(bottomLeftChildCircles[i]);
+      }
     }
-    std::vector<Circle*> bottomRightChildCircles =
-      bottomRightChild->getAllObjectsWithinBranch();
-    for (size_t i = 0; i < bottomRightChildCircles.size(); i++) {
-      circles.push_back(bottomRightChildCircles[i]);
+    if (isOverlapping(circle, bottomRightChild)) {
+      std::vector<Circle*> bottomRightChildCircles =
+        bottomRightChild->getObjectsForCollisionCheck(circle);
+      for (size_t i = 0; i < bottomRightChildCircles.size(); i++) {
+        circles.push_back(bottomRightChildCircles[i]);
+      }
     }
 
     for (size_t i = 0; i < objects.size(); i++) {
@@ -430,7 +441,7 @@ struct Quad {
         // Check collision for objects that are in child quads of the circle's
         // current quad
         objectsForCollisionCheck =
-          objects[i]->quad->getAllObjectsWithinBranch();
+          objects[i]->quad->getObjectsForCollisionCheck(objects[i]);
         objects[i]->handleCircleCollision(objectsForCollisionCheck);
 
         objects[i]->handleEdgeCollision();
@@ -445,6 +456,23 @@ struct Quad {
     if (topRightChild) topRightChild->update();
     if (bottomLeftChild) bottomLeftChild->update();
     if (bottomRightChild) bottomRightChild->update();
+  }
+	
+  // Return true if the circle's AABB and the quad are overlapping
+  // https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
+  static bool isOverlapping(const Circle* c, const Quad* q) {
+    Vector2 circleTopLeft = Vector2SubtractValue(c->position, c->radius);
+    Vector2 circleBottomRight = Vector2AddValue(c->position, c->radius);
+
+    Vector2 quadTopLeft = Vector2SubtractValue(q->center, q->halfWidth);
+    Vector2 quadBottomRight = Vector2AddValue(q->center, q->halfWidth);
+
+    return (
+      circleTopLeft.x < quadTopLeft.x + quadBottomRight.x &&
+      circleTopLeft.x + circleBottomRight.x > quadTopLeft.x &&
+      circleTopLeft.y < quadTopLeft.y + quadBottomRight.y &&
+      circleTopLeft.y + circleBottomRight.y > quadTopLeft.y
+    );
   }
 };
 
