@@ -546,6 +546,13 @@ int main() {
     );
     DrawText(bigCircleCountBuffer, 10, 30, 20, BLACK);
 
+    DrawText("Press Q to toggle uniform grid visibility.", 10, 50, 20, BLACK);
+
+		if (paused) {
+			DrawText("Press A to resume.", 150, (WINDOW_HEIGHT / 2) - 50, 100, ORANGE);
+		} else {
+			DrawText("Press A to pause.", 10, 70, 20, BLACK);
+		}
     EndDrawing();
   }
 
