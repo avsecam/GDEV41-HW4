@@ -19,7 +19,7 @@ const KeyboardKey DETAILS_KEY(KEY_Q);
 enum CircleSize { small = 0, big = 1 };
 
 const float CIRCLE_VELOCITY_MIN(5.0f);
-const float CIRCLE_VELOCITY_MAX(300.0f);
+const float CIRCLE_VELOCITY_MAX(200.0f);
 
 const int SMALL_CIRCLES_TO_SPAWN_SIMULTANEOUSLY(25);
 const int SMALL_CIRCLE_RADIUS_MIN(5);
