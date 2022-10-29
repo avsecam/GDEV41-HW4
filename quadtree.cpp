@@ -468,10 +468,10 @@ struct Quad {
     Vector2 quadBottomRight = Vector2AddValue(q->center, q->halfWidth);
 
     return (
-      circleTopLeft.x < quadTopLeft.x + quadBottomRight.x &&
-      circleTopLeft.x + circleBottomRight.x > quadTopLeft.x &&
-      circleTopLeft.y < quadTopLeft.y + quadBottomRight.y &&
-      circleTopLeft.y + circleBottomRight.y > quadTopLeft.y
+      circleTopLeft.x < quadBottomRight.x &&
+      circleBottomRight.x > quadTopLeft.x &&
+      circleTopLeft.y < quadBottomRight.y &&
+      circleBottomRight.y > quadTopLeft.y
     );
   }
 };
