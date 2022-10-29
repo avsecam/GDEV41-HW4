@@ -42,7 +42,7 @@ enum QuadPosition {
   bottomRight = 3
 };
 
-const int MAX_DEPTH(4);
+const int MAX_DEPTH(7);
 
 struct Circle;
 struct Quad;
